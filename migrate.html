@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Migrate Exercises to Supabase</title>
+  <style>body { font-family: sans-serif; padding: 2rem; background: #161513; color: #eeeae2; }</style>
+</head>
+<body>
+  <h1>Migrating Exercises to Supabase...</h1>
+  <div id="log"></div>
+
+  <!-- Load the exercise library -->
+  <script src="exercises.js"></script>
+  
+  <!-- Load Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const logEl = document.getElementById('log');
+    function log(msg) {
+      const p = document.createElement('p');
+      p.textContent = msg;
+      logEl.appendChild(p);
+    }
+    
+    window.onerror = function(msg, url, lineNo, columnNo, error) {
+      log(`JS Error: ${msg} at ${lineNo}:${columnNo}`);
+      return false;
+    };
+    const _sbUrl = 'https://oqrmuqmkhkovyavycrgi.supabase.co';
+    const _sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xcm11cW1raGtvdnlhdnljcmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4ODU3MTQsImV4cCI6MjEwMzQ2MTcxNH0.TcihYBeTU-cIMQFxBlfZuL17Jh-SH0GpvnP0KqhLqA4';
+    const supabase = window.supabase.createClient(_sbUrl, _sbKey);
+
+    const logEl = document.getElementById('log');
+    function log(msg) {
+      const p = document.createElement('p');
+      p.textContent = msg;
+      logEl.appendChild(p);
+    }
+
+    async function runMigration() {
+      if (typeof exercises === 'undefined' || !exercises.length) {
+        log('Error: Could not find exercises array.');
+        return;
+      }
+
+      log(`Found ${exercises.length} exercises to migrate.`);
+      
+      let successCount = 0;
+      let errorCount = 0;
+
+      // We process them one by one to avoid overwhelming the network
+      for (const ex of exercises) {
+        try {
+          const { error } = await supabase.from('exercises').upsert({
+            slug: ex.id,
+            name: ex.name,
+            risk_tag: ex.riskTag || null,
+            equipment: ex.equip || null,
+            muscle_group: ex.group || null,
+            correct_video_id: ex.correctVideoId || null,
+            mistake_video_id: ex.mistakeVideoId || null,
+            aliases: ex.aliases || [],
+            cues: ex.cues || [],
+            mistake_title: ex.mistakeTitle || null,
+            mistake_points: ex.mistakePoints || [],
+            why_it_matters: ex.whyItMatters || null
+          }, { onConflict: 'slug' });
+
+          if (error) {
+            log(`? Error on ${ex.name}: ${error.message}`);
+            errorCount++;
+          } else {
+            successCount++;
+          }
+        } catch (err) {
+          log(`? Exception on ${ex.name}: ${err.message}`);
+          errorCount++;
+        }
+      }
+
+      log('-------------------------');
+      log(`Migration Complete!`);
+      log(`Successfully imported: ${successCount}`);
+      if (errorCount > 0) log(`Failed: ${errorCount}`);
+      
+      if (errorCount === 0) {
+        log('? You can now close this window. The app is fully connected to Supabase.');
+      }
+    }
+
+    runMigration();
+  </script>
+</body>
+</html>

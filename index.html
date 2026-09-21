@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpotCheck — Lift Smart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #161513;
+    --bg-card: #201f1c;
+    --bg-raised: #262521;
+    --chalk: #eeeae2;
+    --muted: #8b8579;
+    --muted-dim: #625d54;
+    --correct: #3fa873;
+    --correct-dim: #2a4f3e;
+    --mistake: #e8542a;
+    --mistake-dim: #5a2f1f;
+    --plate: #2a2926;
+    --rule: #38362f;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{ scroll-behavior:smooth; }
+  body{
+    background: var(--bg);
+    color: var(--chalk);
+    font-family: 'Inter', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width: 1080px; margin:0 auto; padding: 32px 20px 80px; }
+  ::selection{ background: var(--mistake); color:#fff; }
+
+  /* Header */
+  header{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:26px; flex-wrap:wrap; gap:8px;}
+  .logo{ font-family:'Oswald', sans-serif; font-weight:700; font-size:28px; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; }
+  .logo span{ color: var(--mistake); }
+  .tagline{ color:var(--muted); font-size:13px; letter-spacing:0.5px; text-transform:uppercase; }
+
+  .section-label{
+    font-family:'Oswald', sans-serif; text-transform:uppercase; letter-spacing:2px;
+    font-size:13px; color:var(--muted); margin: 34px 0 14px; display:flex; align-items:center; gap:10px;
+  }
+  .section-label::after{ content:''; flex:1; height:1px; background:var(--rule); }
+
+  /* ---------- HERO ---------- */
+  .hero{
+    position:relative; overflow:hidden;
+    background:
+      radial-gradient(700px 260px at 12% -30%, rgba(232,84,42,0.16), transparent 70%),
+      linear-gradient(160deg, #232220 0%, #1a1917 100%);
+    border:1px solid var(--rule); border-radius:16px;
+    padding:38px 34px 32px; margin-bottom:30px;
+  }
+  .hero::after{
+    content:''; position:absolute; right:-70px; top:50%; transform:translateY(-50%);
+    width:300px; height:300px; border-radius:50%;
+    border:34px solid rgba(255,255,255,0.018);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+    pointer-events:none;
+  }
+  .hero h2{
+    font-family:'Oswald', sans-serif; text-transform:uppercase; font-size:clamp(26px, 4.4vw, 42px);
+    line-height:1.05; letter-spacing:0.5px; margin-bottom:14px; max-width:17ch; position:relative; z-index:1;
+  }
+  .hero h2 em{ font-style:normal; color:var(--mistake); }
+  .hero p{
+    color:var(--muted); font-size:15px; line-height:1.65; max-width:52ch;
+    margin-bottom:22px; position:relative; z-index:1;
+  }
+  .stats{ display:flex; gap:30px; flex-wrap:wrap; position:relative; z-index:1; }
+  .stat b{
+    display:block; font-family:'Oswald', sans-serif; font-size:27px; color:var(--chalk);
+    line-height:1; margin-bottom:5px; font-variant-numeric:tabular-nums;
+  }
+  .stat span{
+    font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--muted-dim);
+    font-family:'Oswald', sans-serif;
+  }
+
+  .formcheck-link{
+    position:relative; z-index:1; display:inline-flex; align-items:center; gap:13px;
+    margin-top:24px; padding:13px 18px; border-radius:10px; text-decoration:none;
+    background:rgba(232,84,42,.09); border:1px solid rgba(232,84,42,.32);
+    transition: background .15s, border-color .15s, transform .15s;
+  }
+  .formcheck-link:hover{ background:rgba(232,84,42,.16); border-color:var(--mistake); transform:translateY(-1px); }
+  .formcheck-link svg{ width:26px; height:26px; color:var(--mistake); flex-shrink:0; }
+  .formcheck-link span{
+    font-family:'Oswald', sans-serif; text-transform:uppercase; letter-spacing:1px;
+    font-size:13.5px; color:var(--chalk); line-height:1.3;
+  }
+  .formcheck-link em{
+    display:block; font-family:'Inter', sans-serif; font-style:normal; text-transform:none;
+    letter-spacing:0; font-size:12px; color:var(--muted); margin-top:4px;
+  }
+
+  /* ---------- STICKY SEARCH ---------- */
+  .toolbar{
+    position:sticky; top:0; z-index:30; background:var(--bg);
+    padding:14px 0 4px; margin:0 -4px 4px; padding-left:4px; padding-right:4px;
+  }
+  .toolbar.stuck{ box-shadow: 0 10px 20px -12px rgba(0,0,0,0.85); border-bottom:1px solid var(--rule); }
+
+  .filter-line{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;
+  }
+  .filter-line > .f-label{
+    font-family:'Oswald', sans-serif; font-size:10.5px; letter-spacing:1.6px;
+    text-transform:uppercase; color:var(--muted-dim); min-width:74px;
+  }
+
+  .dice{
+    background:var(--bg-card); border:1px solid var(--rule); color:var(--muted);
+    font-family:'Oswald', sans-serif; font-size:11.5px; letter-spacing:1.2px; text-transform:uppercase;
+    padding:11px 15px; border-radius:10px; cursor:pointer; white-space:nowrap;
+    display:inline-flex; align-items:center; gap:7px; transition: all .15s;
+  }
+  .dice:hover{ border-color:var(--mistake); color:var(--chalk); }
+  .dice svg{ width:15px; height:15px; }
+
+  /* Search + filters */
+  .search-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  .search-wrap{ position:relative; flex:1; min-width:220px; }
+  .search-wrap svg{ position:absolute; left:14px; top:50%; transform:translateY(-50%); width:16px; height:16px; pointer-events:none; }
+  #search{
+    width:100%; background:var(--bg-card); border:1px solid var(--rule); border-radius:10px;
+    color:var(--chalk); font-family:'Inter'; font-size:14.5px; padding:12px 38px 12px 40px;
+    transition: border-color .15s;
+  }
+  #search:focus{ outline:none; border-color:var(--mistake); }
+  #search::placeholder{ color:var(--muted-dim); }
+  .clear-btn{
+    position:absolute; right:10px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:var(--muted); cursor:pointer; font-size:18px;
+    line-height:1; padding:4px 6px; display:none;
+  }
+  .clear-btn.active{ display:block; }
+  .clear-btn:hover{ color:var(--chalk); }
+  .count{ color:var(--muted); font-size:12.5px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:22px; }
+  .chip{
+    background:var(--bg-card); border:1px solid var(--rule); color:var(--muted);
+    font-family:'Oswald', sans-serif; font-size:11.5px; letter-spacing:1.2px; text-transform:uppercase;
+    padding:7px 13px; border-radius:20px; cursor:pointer; transition: all .15s;
+  }
+  .chip:hover{ color:var(--chalk); border-color:var(--muted); }
+  .chip.active{ background:var(--mistake); border-color:var(--mistake); color:#fff; }
+  .chip:focus-visible{ outline:2px solid var(--chalk); outline-offset:2px; }
+
+  /* Grid */
+  .grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(148px,1fr)); gap:16px; }
+
+  .plate{
+    --g: #8b8579;
+    position:relative; aspect-ratio: 1; border-radius:50%;
+    background:
+      radial-gradient(circle at 34% 28%, rgba(255,255,255,0.05), transparent 55%),
+      radial-gradient(circle at 50% 50%, #302f2a 0%, var(--plate) 62%, #232220 100%);
+    border: 6px solid #1c1b18;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--g) 34%, #3a3830),
+      inset 0 0 22px rgba(0,0,0,0.55),
+      0 8px 18px rgba(0,0,0,0.38);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    cursor:pointer; text-align:center; padding: 12px 10px;
+    transition: transform .18s ease, box-shadow .18s ease;
+    font: inherit; color: inherit;
+  }
+  /* thin coloured arc so muscle group reads at a glance */
+  .plate::before{
+    content:''; position:absolute; inset:-6px; border-radius:50%;
+    border:2px solid transparent;
+    border-top-color: var(--g); border-right-color: var(--g);
+    opacity:.55; transform:rotate(-38deg);
+    transition: opacity .18s ease, transform .35s ease;
+    pointer-events:none;
+  }
+  .plate:hover, .plate:focus-visible{
+    transform: translateY(-5px) scale(1.03); outline:none;
+    box-shadow:
+      0 0 0 1px var(--g),
+      inset 0 0 22px rgba(0,0,0,0.55),
+      0 14px 26px rgba(0,0,0,0.5),
+      0 0 26px -6px color-mix(in srgb, var(--g) 55%, transparent);
+  }
+  .plate:hover::before, .plate:focus-visible::before{ opacity:1; transform:rotate(140deg); }
+
+  .plate .icon-disc{
+    width:44px; height:44px; border-radius:50%;
+    background: var(--bg); box-shadow: inset 0 2px 6px rgba(0,0,0,0.6);
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom:8px; flex-shrink:0;
+  }
+  .plate .icon-disc svg{ width:24px; height:24px; display:block; transition: stroke .18s ease; }
+  .plate:hover .icon-disc svg, .plate:focus-visible .icon-disc svg{ stroke: var(--g); }
+  .plate .ex-name{
+    font-family:'Oswald', sans-serif; font-weight:600; font-size:13.5px; text-transform:uppercase;
+    letter-spacing:0.4px; line-height:1.15; max-width:100%;
+  }
+  .plate .risk-tag{
+    font-size:8.5px; letter-spacing:1.3px; text-transform:uppercase;
+    color: var(--muted); margin-top:4px; font-weight:600; line-height:1.2;
+  }
+  .plate:hover .risk-tag, .plate:focus-visible .risk-tag{ color: var(--mistake); }
+
+  .no-results{
+    grid-column: 1 / -1; text-align:center; color:var(--muted); font-size:14px;
+    padding:50px 20px; line-height:1.7;
+  }
+  .no-results strong{ color:var(--chalk); display:block; font-family:'Oswald'; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+
+  /* ---------- DETAIL ---------- */
+  .detail{ display:none; animation: fade .25s ease; }
+  .detail.active{ display:block; }
+  @keyframes fade{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+
+  .back-btn{
+    background:none; border:1px solid var(--rule); color:var(--muted); font-family:'Inter';
+    font-size:13px; padding:8px 14px; border-radius:6px; cursor:pointer; margin-bottom:22px;
+    transition: border-color .15s, color .15s;
+  }
+  .back-btn:hover{ border-color:var(--chalk); color:var(--chalk); }
+
+  .detail h1{
+    font-family:'Oswald', sans-serif; text-transform:uppercase; font-size:36px;
+    letter-spacing:0.5px; margin-bottom:12px; line-height:1.1;
+  }
+
+  .meta-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:26px; }
+  .meta{
+    display:inline-flex; align-items:center; gap:7px;
+    background:var(--bg-card); border:1px solid var(--rule); border-radius:20px;
+    padding:6px 13px; font-size:11.5px; letter-spacing:1.1px; text-transform:uppercase;
+    font-family:'Oswald', sans-serif; color:var(--muted);
+  }
+  .meta svg{ width:14px; height:14px; }
+  .meta.risk{ color:var(--mistake); border-color:var(--mistake-dim); }
+
+  /* Toggle */
+  .toggle-row{ display:flex; justify-content:center; margin: 0 0 26px; }
+  .barbell-toggle{
+    position:relative; width: 340px; max-width:100%; height:54px;
+    background: var(--bg-card); border-radius:27px; border:1px solid var(--rule);
+    display:flex; align-items:center; cursor:pointer; user-select:none; padding: 0 6px;
+  }
+  .barbell-toggle:focus-visible{ outline:2px solid var(--chalk); outline-offset:3px; }
+  .barbell-toggle .sleeve{
+    position:absolute; top:50%; transform:translateY(-50%);
+    width:26px; height:26px; border-radius:50%; background:#3a3830; z-index:1;
+  }
+  .barbell-toggle .sleeve.left{ left:-4px; }
+  .barbell-toggle .sleeve.right{ right:-4px; }
+  .toggle-label{
+    flex:1; text-align:center; font-family:'Oswald', sans-serif; font-size:13px;
+    text-transform:uppercase; letter-spacing:1px; z-index:2; transition:color .2s;
+  }
+  .toggle-plate{
+    position:absolute; top:3px; left:3px; width: calc(50% - 6px); height:calc(100% - 6px);
+    border-radius:24px; background: var(--correct);
+    transition: left .25s cubic-bezier(.4,0,.2,1), background .25s; z-index:1;
+  }
+  .barbell-toggle[data-state="mistake"] .toggle-plate{ left: calc(50% + 3px); background: var(--mistake); }
+  .toggle-label.correct{ color: var(--chalk); }
+  .toggle-label.mistake{ color: var(--muted); }
+  .barbell-toggle[data-state="mistake"] .toggle-label.correct{ color:var(--muted); }
+  .barbell-toggle[data-state="mistake"] .toggle-label.mistake{ color:var(--chalk); }
+
+  /* Detail body: risk map + panels */
+  .detail-body{ display:grid; grid-template-columns: 260px 1fr; gap:18px; align-items:start; }
+  @media (max-width: 780px){ .detail-body{ grid-template-columns: 1fr; } }
+
+  .riskmap{
+    background: var(--bg-card); border:1px solid var(--rule); border-radius:12px;
+    padding:20px 16px 16px; text-align:center; position:sticky; top:20px;
+    transition: border-color .25s;
+  }
+  @media (max-width: 780px){ .riskmap{ position:static; } }
+  .riskmap h4{
+    font-family:'Oswald', sans-serif; text-transform:uppercase; letter-spacing:1.4px;
+    font-size:11px; color:var(--muted); margin-bottom:12px;
+  }
+  .riskmap svg{ width:100%; max-width:150px; height:auto; }
+  .riskmap .legend{
+    margin-top:12px; padding-top:12px; border-top:1px dashed var(--rule);
+    font-family:'Oswald', sans-serif; text-transform:uppercase; letter-spacing:1.2px;
+    font-size:12.5px; color:var(--mistake); line-height:1.5;
+  }
+  .riskmap .legend-sub{
+    display:block; font-family:'Inter'; text-transform:none; letter-spacing:0;
+    font-size:11.5px; color:var(--muted-dim); margin-top:6px; line-height:1.5;
+  }
+
+  .panel{
+    background: var(--bg-card); border:1px solid var(--rule); border-radius:12px; padding:24px;
+  }
+  .panel.correct{ border-left: 3px solid var(--correct); }
+  .panel.mistake{ border-left: 3px solid var(--mistake); }
+  .panel h3{
+    font-family:'Oswald', sans-serif; text-transform:uppercase; letter-spacing:1px; font-size:15px;
+    margin-bottom:16px; display:flex; align-items:center; gap:9px;
+  }
+  .panel h3 svg{ width:17px; height:17px; flex-shrink:0; }
+  .panel.correct h3{ color:var(--correct); }
+  .panel.mistake h3{ color:var(--mistake); }
+
+  .cue-list{ list-style:none; }
+  .cue-list li{
+    position:relative; padding-left:26px; margin-bottom:13px;
+    font-size:14.5px; line-height:1.55; color:#d8d3c8;
+  }
+  .cue-list li:last-child{ margin-bottom:0; }
+  .cue-list li::before{
+    content:''; position:absolute; left:0; top:7px;
+    width:9px; height:9px; border-radius:50%; border:2px solid var(--correct);
+  }
+  .panel.mistake .cue-list li::before{
+    border:none; width:11px; height:2px; background:var(--mistake); top:11px; left:1px;
+  }
+
+  .why{
+    margin-top:18px; padding:15px 16px; background:rgba(0,0,0,0.22); border-radius:9px;
+    font-size:13.5px; color:var(--muted); line-height:1.6;
+  }
+  .why strong{ color:var(--mistake); }
+
+  .content-panels{ display:none; }
+  .content-panels.active{ display:block; animation: fade .2s ease; }
+
+  /* Related */
+  .related{ display:flex; gap:9px; flex-wrap:wrap; }
+  .related button{
+    background:var(--bg-card); border:1px solid var(--rule); color:var(--muted);
+    font-family:'Inter'; font-size:13px; padding:9px 14px; border-radius:8px; cursor:pointer;
+    transition: all .15s;
+  }
+  .related button:hover{ border-color:var(--mistake); color:var(--chalk); }
+
+  /* Suggest form */
+  .suggest-form input[type="text"], .suggest-form textarea{
+    width:100%; background:var(--bg-raised); border:1px solid var(--rule);
+    border-radius:10px; color:var(--chalk); font-family:'Inter'; font-size:14px; padding:13px 14px;
+    margin-bottom:12px; transition: border-color .15s;
+  }
+  .suggest-form textarea{ min-height:90px; resize:vertical; }
+  .suggest-form input:focus, .suggest-form textarea:focus{ outline:none; border-color:var(--mistake); }
+  .suggest-form input::placeholder, .suggest-form textarea::placeholder{ color:var(--muted-dim); }
+  .suggest-form button{
+    background:var(--mistake); color:#fff; border:none; padding:12px 24px;
+    border-radius:8px; font-family:'Oswald'; text-transform:uppercase; letter-spacing:1px; font-size:13px;
+    cursor:pointer; transition: opacity .15s;
+  }
+  .suggest-form button:hover{ opacity:.9; }
+  .form-error{ color:var(--mistake); font-size:13px; margin-bottom:10px; display:none; }
+  .form-error.active{ display:block; }
+
+  .thanks{
+    display:none; padding:20px; background:var(--bg-card); border-radius:10px;
+    border:1px solid var(--correct-dim); border-left:3px solid var(--correct);
+    font-size:14.5px; line-height:1.6; color:#d8d3c8;
+  }
+  .thanks.active{ display:block; animation: fade .25s ease; }
+  .thanks strong{
+    color:var(--correct); font-family:'Oswald'; text-transform:uppercase; letter-spacing:1px;
+    font-size:13px; display:block; margin-bottom:8px;
+  }
+  .thanks .again{
+    background:none; border:1px solid var(--rule); color:var(--muted); font-family:'Inter';
+    font-size:12.5px; padding:7px 13px; border-radius:6px; cursor:pointer; margin-top:14px;
+  }
+  .thanks .again:hover{ border-color:var(--chalk); color:var(--chalk); }
+
+  footer{ text-align:center; color:var(--muted-dim); font-size:12px; margin-top:70px; line-height:1.8; }
+</style>
+</head>
+<body>
+
+<!-- Hidden form so Netlify detects and logs submissions at deploy time. Do not remove. -->
+<form name="exercise-suggestions" data-netlify="true" hidden>
+  <input type="text" name="exercise-name" />
+  <textarea name="notes"></textarea>
+</form>
+
+<div class="wrap">
+
+  <header>
+    <div class="logo" onclick="goHome()">Spot<span>Check</span></div>
+    <div class="tagline">Know the lift before it hurts you</div>
+  </header>
+
+  <!-- HOME -->
+  <div id="home-view">
+
+    <section class="hero">
+      <h2>The mistake that <em>looks</em> like good form</h2>
+      <p>
+        Most gym injuries don't come from obviously bad technique — they come from reps that look fine
+        and aren't. Pick a lift to see the cues that matter, the mistake people actually make, and which
+        joint pays for it.
+      </p>
+      <div class="stats">
+        <div class="stat"><b id="stat-count">0</b><span>Exercises</span></div>
+        <div class="stat"><b id="stat-groups">0</b><span>Muscle groups</span></div>
+        <div class="stat"><b id="stat-risks">0</b><span>Injury areas</span></div>
+      </div>
+      <a class="formcheck-link" href="formcheck.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2.5" y="5.5" width="14" height="13" rx="2.5"/><path d="m16.5 10.5 5-3v9l-5-3z"/>
+        </svg>
+        <span>Check your own form with your camera<em>Prototype — runs on your device, nothing uploaded</em></span>
+      </a>
+    </section>
+
+    <div class="toolbar" id="toolbar">
+      <div class="search-row">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#625d54" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+          <input type="text" id="search" placeholder="Search exercises, equipment or injury area..." autocomplete="off">
+          <button class="clear-btn" id="clear-btn" onclick="clearSearch()" aria-label="Clear search">&times;</button>
+        </div>
+        <button class="dice" onclick="randomExercise()" title="Show me a random exercise">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><circle cx="8.6" cy="8.6" r="1.35" fill="currentColor" stroke="none"/><circle cx="15.4" cy="15.4" r="1.35" fill="currentColor" stroke="none"/><circle cx="15.4" cy="8.6" r="1.35" fill="currentColor" stroke="none"/><circle cx="8.6" cy="15.4" r="1.35" fill="currentColor" stroke="none"/></svg>
+          Surprise me
+        </button>
+        <span class="count" id="count"></span>
+      </div>
+
+      <div class="filter-line">
+        <span class="f-label">Body part</span>
+        <div class="chips" id="chips" style="margin-bottom:0"></div>
+      </div>
+      <div class="filter-line">
+        <span class="f-label">Watch out for</span>
+        <div class="chips" id="risk-chips" style="margin-bottom:0"></div>
+      </div>
+    </div>
+
+    <div class="grid" id="exercise-grid" style="margin-top:20px"></div>
+
+    <div class="section-label">Can't find your exercise?</div>
+    <div class="panel">
+      <p style="color:#d8d3c8; font-size:14.5px; line-height:1.6; margin-bottom:18px;">
+        Suggest one and it comes straight to us for review. If it's a good fit we'll write up the form cues,
+        the common mistake, and why it matters, then add it as a full guide.
+      </p>
+
+      <div class="suggest-form" id="suggest-form">
+        <div class="form-error" id="form-error"></div>
+        <input type="text" id="suggest-name" placeholder="Exercise name — e.g. 'Copenhagen Plank'" maxlength="80">
+        <textarea id="suggest-notes" placeholder="Anything else that helps? Equipment used, what your gym calls it, or what you find confusing about the form. (optional)" maxlength="600"></textarea>
+        <button id="suggest-btn" onclick="submitSuggestion()">Submit for review</button>
+      </div>
+
+      <div class="thanks" id="thanks">
+        <strong>Thanks — got it</strong>
+        <span id="thanks-text"></span>
+        <br><button class="again" onclick="resetSuggestion()">Suggest another</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL -->
+  <div class="detail" id="detail-view">
+    <button class="back-btn" onclick="goHome()">← All exercises</button>
+    <h1 id="detail-title">Exercise</h1>
+    <div class="meta-row" id="meta-row"></div>
+
+    <div class="toggle-row">
+      <div class="barbell-toggle" id="form-toggle" data-state="correct" onclick="toggleForm()" tabindex="0" role="button" aria-label="Toggle between correct form and common mistake">
+        <div class="sleeve left"></div>
+        <div class="toggle-plate"></div>
+        <div class="toggle-label correct">Correct Form</div>
+        <div class="toggle-label mistake">Common Mistake</div>
+        <div class="sleeve right"></div>
+      </div>
+    </div>
+
+    <div class="detail-body">
+
+      <div class="riskmap" id="riskmap">
+        <h4>Where it goes wrong</h4>
+        <div id="bodymap"></div>
+        <div class="legend" id="risk-legend"></div>
+      </div>
+
+      <div>
+        <div class="content-panels active" id="panel-correct">
+          <div class="panel correct">
+            <h3>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 9.5 18 20 6"/></svg>
+              Form cues
+            </h3>
+            <ul class="cue-list" id="correct-cues"></ul>
+          </div>
+        </div>
+
+        <div class="content-panels" id="panel-mistake">
+          <div class="panel mistake">
+            <h3>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3.5 1.8 20.5h20.4z"/><line x1="12" y1="10" x2="12" y2="14.5"/><line x1="12" y1="17.4" x2="12" y2="17.5"/></svg>
+              <span id="mistake-title">The mistake</span>
+            </h3>
+            <ul class="cue-list" id="mistake-points"></ul>
+            <div class="why" id="mistake-why"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label" id="related-label">Similar exercises</div>
+    <div class="related" id="related"></div>
+  </div>
+
+  <footer>
+    Built by a lifter, not a doctor. Always check with a professional if something feels wrong.<br>
+    Educational only — general form guidance, not a diagnosis or personalised coaching.
+  </footer>
+</div>
+
+<script src="exercises.js"></script>
+<script>
+/* ---------- ICONS ---------- */
+const ICONS = {
+  barbell: '<svg viewBox="0 0 24 24" fill="none" stroke="#8b8579" stroke-width="1.8" stroke-linecap="round"><line x1="2" y1="12" x2="22" y2="12"/><line x1="5" y1="8" x2="5" y2="16"/><line x1="7.5" y1="6.5" x2="7.5" y2="17.5"/><line x1="16.5" y1="6.5" x2="16.5" y2="17.5"/><line x1="19" y1="8" x2="19" y2="16"/></svg>',
+  dumbbell: '<svg viewBox="0 0 24 24" fill="none" stroke="#8b8579" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="12" x2="16" y2="12"/><rect x="3" y="8" width="4" height="8" rx="1"/><rect x="17" y="8" width="4" height="8" rx="1"/></svg>',
+  cable: '<svg viewBox="0 0 24 24" fill="none" stroke="#8b8579" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="2.5"/><line x1="12" y1="7" x2="12" y2="15"/><path d="M8 15h8l-1.5 5h-5z"/></svg>',
+  machine: '<svg viewBox="0 0 24 24" fill="none" stroke="#8b8579" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="16" y2="15"/></svg>',
+  kettlebell: '<svg viewBox="0 0 24 24" fill="none" stroke="#8b8579" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7a3 3 0 0 1 6 0"/><path d="M8.5 7C6 8.5 4.5 11.5 4.5 14.5a3.5 3.5 0 0 0 3.5 3.5h8a3.5 3.5 0 0 0 3.5-3.5c0-3-1.5-6-4-7.5z"/></svg>',
+  bodyweight: '<svg viewBox="0 0 24 24" fill="none" stroke="#8b8579" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="2.2"/><line x1="12" y1="7" x2="12" y2="14"/><line x1="12" y1="9.5" x2="7.5" y2="12"/><line x1="12" y1="9.5" x2="16.5" y2="12"/><line x1="12" y1="14" x2="8.5" y2="20"/><line x1="12" y1="14" x2="15.5" y2="20"/></svg>',
+  other: '<svg viewBox="0 0 24 24" fill="none" stroke="#8b8579" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="15.5" x2="12" y2="15.6"/></svg>'
+};
+const iconFor = e => ICONS[e] || ICONS.other;
+
+const EQUIP_LABEL = {
+  barbell:'Barbell', dumbbell:'Dumbbell', cable:'Cable', machine:'Machine',
+  kettlebell:'Kettlebell', bodyweight:'Bodyweight', other:'Other'
+};
+const GROUP_LABEL = {
+  legs:'Legs', chest:'Chest', back:'Back', shoulders:'Shoulders',
+  arms:'Arms', core:'Core', full:'Full Body'
+};
+// One colour per muscle group so 243 circles don't read as an undifferentiated wall.
+const GROUP_COLOR = {
+  legs:'#d4a03c', chest:'#e8542a', back:'#4a8fd4', shoulders:'#b565d8',
+  arms:'#3fa873', core:'#e0c04a', full:'#d4566f'
+};
+
+/* ---------- BODY MAP ----------
+   Draws a simple figure and lights up the joints named in riskTag.        */
+const BODY_POINTS = {
+  'neck':        [[100,66]],
+  'trap':        [[78,80],[122,80]],
+  'shoulder':    [[58,82],[142,82]],
+  'elbow':       [[44,140],[156,140]],
+  'wrist':       [[38,198],[162,198]],
+  'hand':        [[36,212],[164,212]],
+  'grip':        [[36,212],[164,212]],
+  'lower back':  [[100,176]],
+  'hip':         [[66,196],[134,196]],
+  'groin':       [[100,208]],
+  'quad':        [[70,242],[130,242]],
+  'hamstring':   [[70,242],[130,242]],
+  'knee':        [[72,286],[128,286]],
+  'shin':        [[74,330],[126,330]],
+  'ankle':       [[76,372],[124,372]],
+  'achilles':    [[76,372],[124,372]]
+};
+
+function bodyMap(riskTag, state){
+  const colour = state === 'mistake' ? '#e8542a' : '#3fa873';
+  const parts = riskTag.split('/').map(p => p.trim().toLowerCase());
+  let dots = '';
+  parts.forEach(p => {
+    (BODY_POINTS[p] || []).forEach(([x,y]) => {
+      dots += '<circle cx="'+x+'" cy="'+y+'" r="13" fill="'+colour+'" opacity="0.16"/>' +
+              '<circle cx="'+x+'" cy="'+y+'" r="6.5" fill="'+colour+'"/>';
+    });
+  });
+  return '<svg viewBox="0 0 200 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Body diagram highlighting ' + riskTag + '">' +
+    '<g stroke="#4a473d" stroke-width="7" stroke-linecap="round" fill="none">' +
+      '<circle cx="100" cy="38" r="21" stroke-width="6"/>' +
+      '<line x1="100" y1="59" x2="100" y2="82"/>' +
+      '<line x1="58" y1="82" x2="142" y2="82"/>' +
+      '<line x1="100" y1="82" x2="100" y2="196"/>' +
+      '<polyline points="58,82 44,140 38,198"/>' +
+      '<polyline points="142,82 156,140 162,198"/>' +
+      '<line x1="66" y1="196" x2="134" y2="196"/>' +
+      '<polyline points="66,196 72,286 76,372"/>' +
+      '<polyline points="134,196 128,286 124,372"/>' +
+    '</g>' + dots + '</svg>';
+}
+
+/* ---------- FILTERS ---------- */
+const GROUPS = [
+  {id:'all',label:'All'},{id:'legs',label:'Legs'},{id:'chest',label:'Chest'},
+  {id:'back',label:'Back'},{id:'shoulders',label:'Shoulders'},{id:'arms',label:'Arms'},
+  {id:'core',label:'Core'},{id:'full',label:'Full Body'}
+];
+let activeGroup = 'all';
+let activeRisk = 'all';
+let searchTerm = '';
+
+const chipsEl = document.getElementById('chips');
+GROUPS.forEach(g => {
+  const c = document.createElement('button');
+  c.className = 'chip' + (g.id === 'all' ? ' active' : '');
+  c.textContent = g.label;
+  c.dataset.group = g.id;
+  if(GROUP_COLOR[g.id]) c.style.setProperty('--g', GROUP_COLOR[g.id]);
+  c.onclick = () => {
+    activeGroup = g.id;
+    chipsEl.querySelectorAll('.chip').forEach(x => x.classList.toggle('active', x.dataset.group === g.id));
+    renderGrid();
+  };
+  chipsEl.appendChild(c);
+});
+
+/* Risk-area filter — built from the data so it never drifts out of sync.
+   Lets someone with a cranky shoulder see every lift that loads it. */
+const riskChipsEl = document.getElementById('risk-chips');
+const RISK_AREAS = (() => {
+  const counts = {};
+  exercises.forEach(e => e.riskTag.split('/').forEach(p => {
+    const k = p.trim();
+    counts[k] = (counts[k] || 0) + 1;
+  }));
+  return Object.entries(counts).sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([k]) => k);
+})();
+
+[{id:'all', label:'Any'}].concat(RISK_AREAS.map(r => ({id:r, label:r}))).forEach(r => {
+  const c = document.createElement('button');
+  c.className = 'chip' + (r.id === 'all' ? ' active' : '');
+  c.textContent = r.label;
+  c.dataset.risk = r.id;
+  c.onclick = () => {
+    activeRisk = r.id;
+    riskChipsEl.querySelectorAll('.chip').forEach(x => x.classList.toggle('active', x.dataset.risk === r.id));
+    renderGrid();
+  };
+  riskChipsEl.appendChild(c);
+});
+
+const searchEl = document.getElementById('search');
+searchEl.addEventListener('input', e => {
+  searchTerm = e.target.value.trim().toLowerCase();
+  document.getElementById('clear-btn').classList.toggle('active', !!searchTerm);
+  renderGrid();
+});
+function clearSearch(){
+  searchEl.value = ''; searchTerm = '';
+  document.getElementById('clear-btn').classList.remove('active');
+  renderGrid(); searchEl.focus();
+}
+
+/* ---------- GRID ---------- */
+const grid = document.getElementById('exercise-grid');
+const countEl = document.getElementById('count');
+
+function matchesSearch(ex, term){
+  if(!term) return true;
+  return ex.name.toLowerCase().includes(term)
+      || ex.riskTag.toLowerCase().includes(term)
+      || ex.equip.toLowerCase().includes(term)
+      || (GROUP_LABEL[ex.group] || '').toLowerCase().includes(term)
+      || (ex.aliases || []).some(a => a.includes(term));
+}
+
+function hasRisk(ex, risk){
+  if(risk === 'all') return true;
+  return ex.riskTag.split('/').some(p => p.trim() === risk);
+}
+
+let visibleNow = [];
+
+function renderGrid(){
+  const visible = exercises
+    .filter(ex => activeGroup === 'all' || ex.group === activeGroup)
+    .filter(ex => hasRisk(ex, activeRisk))
+    .filter(ex => matchesSearch(ex, searchTerm))
+    .sort((a,b) => a.name.localeCompare(b.name));
+
+  visibleNow = visible;
+  grid.innerHTML = '';
+
+  if(!visible.length){
+    grid.innerHTML = '<div class="no-results"><strong>Nothing matches that</strong>'
+      + 'Try a shorter word or clear a filter, or scroll down<br>and suggest it — we review every submission.</div>';
+    countEl.textContent = '0 of ' + exercises.length;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  visible.forEach(ex => {
+    const el = document.createElement('button');
+    el.className = 'plate';
+    el.type = 'button';
+    el.style.setProperty('--g', GROUP_COLOR[ex.group] || '#8b8579');
+    el.onclick = () => openExercise(ex.id);
+    el.innerHTML =
+      '<div class="icon-disc">' + iconFor(ex.equip) + '</div>' +
+      '<div class="ex-name">' + ex.name + '</div>' +
+      '<div class="risk-tag">' + ex.riskTag + '</div>';
+    frag.appendChild(el);
+  });
+  grid.appendChild(frag);
+
+  countEl.textContent = visible.length === exercises.length
+    ? exercises.length + ' exercises'
+    : visible.length + ' of ' + exercises.length;
+}
+renderGrid();
+
+/* Pull a random exercise from whatever is currently filtered. */
+function randomExercise(){
+  const pool = visibleNow.length ? visibleNow : exercises;
+  openExercise(pool[Math.floor(Math.random() * pool.length)].id);
+}
+
+/* Hero stats, counted from the data. */
+document.getElementById('stat-count').textContent  = exercises.length;
+document.getElementById('stat-groups').textContent = new Set(exercises.map(e => e.group)).size;
+document.getElementById('stat-risks').textContent  = RISK_AREAS.length;
+
+/* Shadow under the toolbar once it sticks. */
+const toolbarEl = document.getElementById('toolbar');
+const sentinel = document.createElement('div');
+toolbarEl.parentNode.insertBefore(sentinel, toolbarEl);
+if('IntersectionObserver' in window){
+  new IntersectionObserver(
+    ([e]) => toolbarEl.classList.toggle('stuck', e.intersectionRatio < 1),
+    { threshold: [1] }
+  ).observe(sentinel);
+}
+
+/* ---------- DETAIL ---------- */
+let currentExercise = null;
+
+function openExercise(id, skipHash){
+  const ex = exercises.find(e => e.id === id);
+  if(!ex) return;
+  currentExercise = ex;
+
+  document.getElementById('detail-title').textContent = ex.name;
+
+  const gc = GROUP_COLOR[ex.group] || 'var(--muted)';
+  document.getElementById('meta-row').innerHTML =
+    '<span class="meta">' + iconFor(ex.equip) + EQUIP_LABEL[ex.equip] + '</span>' +
+    '<span class="meta" style="color:' + gc + '; border-color:' + gc + '55">'
+      + (GROUP_LABEL[ex.group] || ex.group) + '</span>' +
+    '<span class="meta risk">Watch: ' + ex.riskTag + '</span>';
+
+  document.getElementById('correct-cues').innerHTML  = ex.cues.map(c => '<li>' + c + '</li>').join('');
+  document.getElementById('mistake-title').textContent = ex.mistakeTitle;
+  document.getElementById('mistake-points').innerHTML = ex.mistakePoints.map(p => '<li>' + p + '</li>').join('');
+  document.getElementById('mistake-why').innerHTML =
+    '<strong>Why it matters:</strong>' + ex.why.replace(/^Why it matters:\s*/i, ' ');
+
+  setToggle('correct');
+
+  // Similar exercises: same muscle group, prefer same equipment.
+  const related = exercises
+    .filter(e => e.id !== ex.id && e.group === ex.group)
+    .sort((a,b) => (b.equip === ex.equip) - (a.equip === ex.equip) || a.name.localeCompare(b.name))
+    .slice(0, 6);
+  document.getElementById('related').innerHTML =
+    related.map(r => '<button type="button" onclick="openExercise(\'' + r.id + '\')">' + r.name + '</button>').join('');
+  const hasRelated = related.length > 0;
+  document.getElementById('related-label').style.display = hasRelated ? '' : 'none';
+  document.getElementById('related').style.display = hasRelated ? '' : 'none';
+
+  document.getElementById('home-view').style.display = 'none';
+  document.getElementById('detail-view').classList.add('active');
+  if(!skipHash) location.hash = ex.id;
+  window.scrollTo(0,0);
+}
+
+function setToggle(state){
+  const t = document.getElementById('form-toggle');
+  t.dataset.state = state;
+  const isMistake = state === 'mistake';
+  document.getElementById('panel-correct').classList.toggle('active', !isMistake);
+  document.getElementById('panel-mistake').classList.toggle('active', isMistake);
+  document.getElementById('bodymap').innerHTML = bodyMap(currentExercise.riskTag, state);
+  document.getElementById('riskmap').style.borderColor = isMistake ? 'var(--mistake-dim)' : 'var(--rule)';
+  document.getElementById('risk-legend').innerHTML = isMistake
+    ? currentExercise.riskTag + '<span class="legend-sub">Where the mistake puts the strain.</span>'
+    : currentExercise.riskTag + '<span class="legend-sub">Good form keeps load off these areas.</span>';
+}
+
+function toggleForm(){
+  setToggle(document.getElementById('form-toggle').dataset.state === 'correct' ? 'mistake' : 'correct');
+}
+
+function goHome(){
+  document.getElementById('detail-view').classList.remove('active');
+  document.getElementById('home-view').style.display = 'block';
+  if(location.hash){
+    try { history.pushState('', document.title, location.pathname + location.search); }
+    catch(e) { location.hash = ''; }   // some contexts block pushState; fall back cleanly
+  }
+}
+
+// Keyboard + browser back/forward
+document.addEventListener('keydown', e => {
+  const inField = /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if(e.key === 'Escape'){
+    if(document.getElementById('detail-view').classList.contains('active')) goHome();
+    else if(inField) document.activeElement.blur();
+  }
+  if(!inField && document.getElementById('form-toggle').closest('.detail').classList.contains('active')){
+    if(e.key === 'ArrowLeft')  setToggle('correct');
+    if(e.key === 'ArrowRight') setToggle('mistake');
+  }
+});
+document.getElementById('form-toggle').addEventListener('keydown', e => {
+  if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleForm(); }
+});
+
+function routeFromHash(){
+  const id = location.hash.replace('#','');
+  if(id && exercises.some(e => e.id === id)) openExercise(id, true);
+  else {
+    document.getElementById('detail-view').classList.remove('active');
+    document.getElementById('home-view').style.display = 'block';
+  }
+}
+window.addEventListener('hashchange', routeFromHash);
+routeFromHash();
+
+/* ---------- SUGGEST ---------- */
+// Posts to Netlify Forms (form name: "exercise-suggestions").
+// Review at: Netlify dashboard -> your site -> Forms.
+function findClosest(name){
+  const term = name.toLowerCase();
+  let best = null, bestLen = 0;
+  exercises.forEach(ex => (ex.aliases || []).forEach(a => {
+    if(a.length >= 4 && term.includes(a) && a.length > bestLen){ best = ex; bestLen = a.length; }
+  }));
+  return best;
+}
+
+function submitSuggestion(){
+  const nameEl = document.getElementById('suggest-name');
+  const notesEl = document.getElementById('suggest-notes');
+  const errEl = document.getElementById('form-error');
+
+  const name = nameEl.value.trim();
+  const notes = notesEl.value.trim();
+
+  if(name.length < 2){
+    errEl.textContent = 'Please enter the name of the exercise.';
+    errEl.classList.add('active');
+    nameEl.focus();
+    return;
+  }
+  errEl.classList.remove('active');
+
+  try {
+    fetch('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        'form-name': 'exercise-suggestions',
+        'exercise-name': name,
+        'notes': notes
+      }).toString()
+    }).catch(() => {});
+  } catch(e) { /* never block the confirmation on a network failure */ }
+
+  const match = findClosest(name);
+  document.getElementById('thanks-text').textContent = match
+    ? 'We’ve saved "' + name + '" for review. In the meantime we already have a guide for ' + match.name + ', which may be close to what you were after.'
+    : 'We’ve saved "' + name + '" for review. If it’s a good fit we’ll write up the full guide and add it.';
+
+  document.getElementById('suggest-form').style.display = 'none';
+  document.getElementById('thanks').classList.add('active');
+}
+
+function resetSuggestion(){
+  document.getElementById('suggest-name').value = '';
+  document.getElementById('suggest-notes').value = '';
+  document.getElementById('thanks').classList.remove('active');
+  document.getElementById('suggest-form').style.display = '';
+  document.getElementById('suggest-name').focus();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpotCheck — Form Check (Prototype)</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#161513; --bg-card:#201f1c; --bg-raised:#262521;
+    --chalk:#eeeae2; --muted:#8b8579; --muted-dim:#625d54;
+    --correct:#3fa873; --mistake:#e8542a; --warn:#d4a03c; --rule:#38362f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--chalk);font-family:'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:920px;margin:0 auto;padding:28px 20px 70px}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px}
+  .logo{font-family:'Oswald';font-weight:700;font-size:26px;letter-spacing:.5px;text-transform:uppercase}
+  .logo span{color:var(--mistake)}
+  .badge{font-family:'Oswald';font-size:10px;letter-spacing:1.6px;text-transform:uppercase;color:var(--warn);
+    border:1px solid var(--warn);padding:4px 9px;border-radius:20px}
+  .lede{color:var(--muted);font-size:14px;line-height:1.65;margin:14px 0 22px;max-width:64ch}
+
+  .notice{background:rgba(212,160,60,.07);border:1px solid rgba(212,160,60,.3);border-left:3px solid var(--warn);
+    border-radius:10px;padding:16px 18px;margin-bottom:24px;font-size:13.5px;line-height:1.65;color:#d8d3c8}
+  .notice b{color:var(--warn);font-family:'Oswald';text-transform:uppercase;letter-spacing:1px;font-size:12px;display:block;margin-bottom:7px}
+
+  .card{background:var(--bg-card);border:1px solid var(--rule);border-radius:12px;padding:22px;margin-bottom:18px}
+  .card h3{font-family:'Oswald';text-transform:uppercase;letter-spacing:1.3px;font-size:13px;color:var(--muted);margin-bottom:14px}
+
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .opt{background:var(--bg-raised);border:1px solid var(--rule);color:var(--muted);font-family:'Oswald';
+    font-size:12px;letter-spacing:1.1px;text-transform:uppercase;padding:10px 16px;border-radius:8px;cursor:pointer;transition:all .15s}
+  .opt:hover{color:var(--chalk);border-color:var(--muted)}
+  .opt.active{background:var(--mistake);border-color:var(--mistake);color:#fff}
+  .opt:disabled{opacity:.4;cursor:default}
+  .hint{color:var(--muted-dim);font-size:12.5px;line-height:1.6;margin-top:10px}
+
+  .stage{position:relative;background:#000;border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-bottom:16px;display:none}
+  .stage.active{display:block}
+  .stage video{width:100%;display:block}
+  .stage canvas{position:absolute;inset:0;width:100%;height:100%}
+  .status{position:absolute;top:12px;left:12px;background:rgba(0,0,0,.72);border-radius:7px;padding:7px 12px;
+    font-family:'Oswald';font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--chalk)}
+  .status.bad{color:var(--mistake)}
+  .repcount{position:absolute;top:12px;right:12px;background:rgba(0,0,0,.72);border-radius:7px;padding:7px 13px;
+    font-family:'Oswald';font-size:16px;color:var(--chalk);font-variant-numeric:tabular-nums}
+
+  .live{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px;margin-bottom:18px}
+  .metric{background:var(--bg-card);border:1px solid var(--rule);border-radius:10px;padding:13px 15px}
+  .metric span{display:block;font-family:'Oswald';font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted-dim);margin-bottom:6px}
+  .metric b{font-family:'Oswald';font-size:20px;color:var(--chalk);font-variant-numeric:tabular-nums}
+  .metric.ok b{color:var(--correct)} .metric.warn b{color:var(--warn)} .metric.bad b{color:var(--mistake)}
+
+  #results{display:none} #results.active{display:block}
+
+  /* detected pattern banner */
+  .detected{display:flex;gap:16px;align-items:center;flex-wrap:wrap;
+    background:linear-gradient(150deg,#232220,#1a1917);border:1px solid var(--rule);
+    border-radius:12px;padding:20px 22px;margin-bottom:16px}
+  .detected .big{font-family:'Oswald';text-transform:uppercase;font-size:25px;letter-spacing:.5px;line-height:1.1}
+  .detected .sub{color:var(--muted);font-size:13px;margin-top:5px;line-height:1.55}
+  .detected .reps{margin-left:auto;text-align:right}
+  .detected .reps b{display:block;font-family:'Oswald';font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
+  .detected .reps span{font-family:'Oswald';font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--muted-dim)}
+  .conf{font-family:'Oswald';font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;
+    padding:3px 8px;border-radius:20px;border:1px solid;margin-left:10px;vertical-align:middle}
+  .conf.high{color:var(--correct);border-color:var(--correct)}
+  .conf.low{color:var(--warn);border-color:var(--warn)}
+
+  .picker{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .pick{background:var(--bg-raised);border:1px solid var(--rule);color:var(--muted);font-family:'Inter';
+    font-size:13px;padding:9px 14px;border-radius:8px;cursor:pointer;transition:all .15s}
+  .pick:hover{border-color:var(--muted);color:var(--chalk)}
+  .pick.active{border-color:var(--mistake);color:var(--chalk);background:rgba(232,84,42,.12)}
+
+  /* cue checklist */
+  .cue{display:flex;gap:13px;padding:14px 16px;border-radius:10px;margin-bottom:9px;
+    background:var(--bg-card);border:1px solid var(--rule);font-size:14px;line-height:1.55}
+  .cue.pass{border-left:3px solid var(--correct)}
+  .cue.fail{border-left:3px solid var(--mistake)}
+  .cue.warn{border-left:3px solid var(--warn)}
+  .cue.na{border-left:3px solid var(--rule);opacity:.62}
+  .cue .ic{flex-shrink:0;width:19px;height:19px;margin-top:2px}
+  .cue .txt{color:#d8d3c8}
+  .cue .note{display:block;color:var(--muted-dim);font-size:12.5px;margin-top:5px;font-variant-numeric:tabular-nums}
+  .cue.pass .note{color:var(--correct)}
+  .cue.fail .note{color:var(--mistake)}
+  .cue.warn .note{color:var(--warn)}
+
+  .sec{font-family:'Oswald';text-transform:uppercase;letter-spacing:1.7px;font-size:11.5px;
+    color:var(--muted-dim);margin:22px 0 11px;display:flex;align-items:center;gap:10px}
+  .sec::after{content:'';flex:1;height:1px;background:var(--rule)}
+
+  .mistake-box{background:rgba(232,84,42,.06);border:1px solid rgba(232,84,42,.25);border-left:3px solid var(--mistake);
+    border-radius:10px;padding:16px 18px;font-size:13.5px;line-height:1.6;color:#d8d3c8;margin-top:4px}
+  .mistake-box b{color:var(--mistake);font-family:'Oswald';text-transform:uppercase;letter-spacing:.9px;font-size:13px;display:block;margin-bottom:7px}
+
+  .disclaim{color:var(--muted-dim);font-size:12px;line-height:1.7;margin-top:20px;padding-top:16px;border-top:1px solid var(--rule)}
+  footer{text-align:center;color:var(--muted-dim);font-size:12px;margin-top:50px;line-height:1.7}
+  a{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo">Spot<span>Check</span></div>
+    <div class="badge">Prototype</div>
+  </header>
+
+  <p class="lede">
+    Tracks your joints while you move, works out which movement pattern you're doing, counts your reps,
+    and checks the cues a camera can actually verify. Everything runs on your own device — the video is
+    never uploaded anywhere.
+  </p>
+
+  <div class="notice">
+    <b>What this can and can't do</b>
+    It measures geometry — joint positions and angles it can see. It can tell you your knee passed your
+    ankle by a certain amount, or that your hips sagged. It can't see what's in your hands, so it detects
+    the <i>pattern</i> (a squat) rather than the exact lift (a front squat vs a goblet squat) — you confirm
+    that bit. It also can't judge bracing, grip, breathing, or pain. Cues it can't verify are marked as such
+    rather than quietly passed.
+  </div>
+
+  <div class="card">
+    <h3>1 — What are you doing?</h3>
+    <div class="row">
+      <input list="ex-list" id="ex-input" placeholder="Start typing — e.g. Barbell Back Squat"
+             autocomplete="off" oninput="pickExercise(this.value)"
+             style="flex:1;min-width:240px;background:var(--bg-raised);border:1px solid var(--rule);
+                    border-radius:8px;color:var(--chalk);font-family:'Inter';font-size:14px;padding:11px 13px">
+      <datalist id="ex-list"></datalist>
+      <button class="opt" id="auto-btn" onclick="pickExercise('')">Detect for me</button>
+    </div>
+    <p class="hint" id="ex-hint">Pick the exercise and the checks are tailored to it. Leave it blank and the movement pattern gets detected instead.</p>
+  </div>
+
+  <div class="card">
+    <h3>2 — Camera angle</h3>
+    <div class="row">
+      <button class="opt active" data-view="side" onclick="setView('side')">Side on</button>
+      <button class="opt" data-view="front" onclick="setView('front')">Facing camera</button>
+    </div>
+    <p class="hint" id="view-hint"></p>
+  </div>
+
+  <div class="card">
+    <h3>3 — Tracking quality</h3>
+    <div class="row">
+      <button class="opt active" data-model="fast" onclick="setModel('fast')">Fast</button>
+      <button class="opt" data-model="accurate" onclick="setModel('accurate')">Accurate</button>
+    </div>
+    <p class="hint" id="model-hint"></p>
+  </div>
+
+  <div class="card">
+    <h3>4 — Your clip</h3>
+    <div class="row">
+      <input type="file" id="file" accept="video/*" hidden onchange="loadFile(event)">
+      <button class="opt" onclick="document.getElementById('file').click()">Upload a video</button>
+      <button class="opt" onclick="startCam()">Use camera</button>
+      <button class="opt" id="analyse-btn" onclick="startAnalysis()" disabled>Analyse</button>
+      <button class="opt" id="stop-btn" onclick="stopAll()" style="display:none">Stop</button>
+    </div>
+    <p class="hint">Whole body in frame, 5–15 seconds, 2–3 reps. Good light, fitted clothing, phone braced on something.</p>
+  </div>
+
+  <div class="stage" id="stage">
+    <video id="video" playsinline muted></video>
+    <canvas id="canvas"></canvas>
+    <div class="status" id="status">Loading model…</div>
+    <div class="repcount" id="repcount" style="display:none">0</div>
+  </div>
+
+  <div class="live" id="live"></div>
+
+  <div id="results">
+    <div class="detected" id="detected"></div>
+    <div id="picker-wrap" style="display:none">
+      <div class="sec">Which one were you doing?</div>
+      <div class="picker" id="picker"></div>
+    </div>
+    <div id="checklist-wrap" style="display:none">
+      <div class="sec">Your form cues</div>
+      <div id="checklist"></div>
+      <div id="mistake-wrap"></div>
+      
+      <!-- AI Vision Form Analysis Section -->
+      <div class="sec">🤖 AI Form Coach Analysis</div>
+      <div id="ai-coach-card" style="background:var(--bg-card);border:1px solid var(--rule);border-radius:12px;padding:20px;margin-bottom:16px;">
+        <button class="opt active" id="ai-coach-btn" onclick="requestAICoach()" style="background:var(--mistake);border-color:var(--mistake);color:#fff;font-size:13px;padding:12px 20px;border-radius:8px;">
+          ✨ Get AI Vision Form Analysis
+        </button>
+        <div id="ai-coach-result" style="margin-top:14px;display:none;font-size:14px;line-height:1.65;color:#eeeae2;"></div>
+      </div>
+
+      <div class="disclaim" id="disclaim"></div>
+    </div>
+  </div>
+
+  <footer>
+    Prototype — measurements only, not medical or coaching advice.<br>
+    <a href="index.html">← Back to SpotCheck</a>
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.20.0/dist/tf-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.20.0/dist/tf-converter.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.20.0/dist/tf-backend-webgl.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+<script src="exercises.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const _sbUrl = 'https://oqrmuqmkhkovyavycrgi.supabase.co';
+  const _sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xcm11cW1raGtvdnlhdnljcmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4ODU3MTQsImV4cCI6MjEwMzQ2MTcxNH0.TcihYBeTU-cIMQFxBlfZuL17Jh-SH0GpvnP0KqhLqA4';
+  const supabase = window.supabase.createClient(_sbUrl, _sbKey);
+
+/* ============================================================
+   SpotCheck — client-side form measurement (prototype)
+
+   Pipeline:
+     MoveNet (in-browser) -> joint coords per frame
+       -> movement-pattern classification + rep count
+       -> match to the SpotCheck exercise library
+       -> check that exercise's real cues against measurable geometry
+
+   No frame leaves the device. There is no server call in this file.
+   Body video is sensitive data; keeping it local removes most of the
+   privacy burden rather than trying to manage it.
+   ============================================================ */
+
+const KP = {};
+const MIN_SCORE = 0.35;
+const MIN_GOOD_FRAMES = 12;
+
+/* Thresholds. Deliberately forgiving — a checker that flags healthy reps
+   stops being trusted. Tune these once you have real gym footage. */
+const VALGUS_WARN = 0.08, VALGUS_BAD = 0.15;   // knee inside hip->ankle line / shoulder width
+const KNEE_WARN   = 0.35, KNEE_BAD   = 0.55;   // knee past ankle / shin length
+const LEAN_WARN   = 55;                        // torso degrees from vertical (squat)
+const SAG_WARN    = 0.06, SAG_BAD    = 0.11;   // hip off the shoulder-ankle line / body length
+const HINGE_KNEE_WARN = 100;                   // knee angle below this = squatting a hinge
+
+let detector = null, view = 'side', running = false, stream = null;
+let samples = [], keyframes = [], liveReps = 0, chosenExercise = null, lastAnalysis = null;
+let modelKind = 'fast';          // 'fast' = Lightning, 'accurate' = Thunder
+let userPicked = null;           // exercise the user chose up front, if any
+const smoothKP = {};             // exponential moving average of each joint
+
+/* Joint positions jitter frame to frame. Smoothing them before measuring
+   removes most false readings. Free — it's just arithmetic. */
+const SMOOTH_A = 0.6;
+function smoothKeypoints(){
+  Object.keys(KP).forEach(n => {
+    const p = KP[n];
+    if(p.score < MIN_SCORE) return;
+    if(!smoothKP[n]) smoothKP[n] = { x:p.x, y:p.y };
+    else {
+      smoothKP[n].x = SMOOTH_A*smoothKP[n].x + (1-SMOOTH_A)*p.x;
+      smoothKP[n].y = SMOOTH_A*smoothKP[n].y + (1-SMOOTH_A)*p.y;
+    }
+    p.x = smoothKP[n].x; p.y = smoothKP[n].y;
+  });
+}
+
+const videoEl = document.getElementById('video');
+const canvasEl = document.getElementById('canvas');
+const ctx = canvasEl.getContext('2d');
+const statusEl = document.getElementById('status');
+
+const VIEW_HINTS = {
+  side: 'Side-on measures depth, knee travel past the ankle, torso lean, and body line on push-ups and planks. It cannot see knees caving inward.',
+  front: 'Facing the camera measures knees caving inward, stance width, and left/right evenness. It cannot measure depth or torso lean reliably.'
+};
+function setView(v){
+  view = v;
+  document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  document.getElementById('view-hint').textContent = VIEW_HINTS[v];
+}
+setView('side');
+
+/* ---------- pick the exercise up front ----------
+   Choosing first is more reliable than detecting: we skip the guess entirely
+   and run the checks that belong to that lift. Detection still runs quietly
+   in the background as a sanity check on the camera angle. */
+function patternOf(ex){
+  const hay = (ex.name + ' ' + (ex.aliases||[]).join(' ')).toLowerCase();
+  for(const p of Object.keys(PATTERNS)){
+    if((PATTERN_EXCLUDE[p]||[]).some(b => hay.includes(b))) continue;
+    if(PATTERNS[p].keys.some(k => hay.includes(k))) return p;
+  }
+  return null;
+}
+
+/* which camera angle actually answers something for this pattern */
+const BEST_VIEW = {
+  squat:'either', hinge:'side', lunge:'side', press:'side',
+  pull:'front', pushup:'side', hold:'side'
+};
+
+function buildExerciseList(){
+  if(typeof exercises === 'undefined') return;
+  document.getElementById('ex-list').innerHTML =
+    exercises.map(e => '<option value="'+e.name+'">').join('');
+}
+
+function pickExercise(val){
+  const hint = document.getElementById('ex-hint');
+  const input = document.getElementById('ex-input');
+  if(!val){
+    userPicked = null; input.value = '';
+    document.getElementById('auto-btn').classList.add('active');
+    hint.textContent = 'Nothing selected — the movement pattern will be detected from your joints instead.';
+    return;
+  }
+  document.getElementById('auto-btn').classList.remove('active');
+  const q = val.trim().toLowerCase();
+  const ex = (typeof exercises === 'undefined') ? null :
+    // exact name, then alias, then a unique partial name match
+    exercises.find(e => e.name.toLowerCase() === q)
+    || exercises.find(e => (e.aliases||[]).some(a => a === q))
+    || (exercises.filter(e => e.name.toLowerCase().includes(q)).length === 1
+          ? exercises.find(e => e.name.toLowerCase().includes(q)) : null);
+  if(!ex){
+    userPicked = null;
+    hint.textContent = 'Keep typing — pick one from the list to tailor the checks.';
+    return;
+  }
+  userPicked = ex;
+  const pat = patternOf(ex);
+  const best = pat ? BEST_VIEW[pat] : null;
+  let msg = 'Checking against the ' + ex.name + ' cues.';
+  if(!pat) msg += ' No camera-checkable geometry for this one yet — you\'ll still get the written cues and the mistake to watch for.';
+  else if(best === 'either') msg += ' Either camera angle works; side-on gives depth and knee travel, front-on gives knee cave.';
+  else msg += ' Film ' + (best === 'side' ? 'side-on' : 'facing the camera') + ' for this one — the other angle can\'t see much of it.';
+  hint.textContent = msg;
+  if(pat && best && best !== 'either') setView(best);
+}
+
+/* ---------- model ---------- */
+const MODEL_HINTS = {
+  fast: 'MoveNet Lightning — runs smoothly on most phones. Fine for clear, well-lit clips.',
+  accurate: 'MoveNet Thunder — noticeably better at holding onto joints in poor light or baggy clothing. Slower, but it costs nothing extra; it just works your phone harder.'
+};
+function setModel(k){
+  if(k === modelKind) return;
+  modelKind = k; detector = null;      // force a reload with the other model
+  document.querySelectorAll('[data-model]').forEach(b=>b.classList.toggle('active', b.dataset.model===k));
+  document.getElementById('model-hint').textContent = MODEL_HINTS[k];
+}
+
+async function loadModel(){
+  if(detector) return detector;
+  statusEl.textContent = 'Loading model…';
+  await tf.setBackend('webgl'); await tf.ready();
+  detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    { modelType: modelKind === 'accurate'
+        ? poseDetection.movenet.modelType.SINGLEPOSE_THUNDER
+        : poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+  );
+  statusEl.textContent = 'Model ready';
+  return detector;
+}
+
+/* ---------- sources ---------- */
+function loadFile(e){
+  const f = e.target.files[0]; if(!f) return;
+  stopStream(); videoEl.srcObject = null;
+  videoEl.src = URL.createObjectURL(f); videoEl.loop = false; videoEl.muted = true;
+  document.getElementById('stage').classList.add('active');
+  videoEl.onloadedmetadata = () => {
+    sizeCanvas();
+    document.getElementById('analyse-btn').disabled = false;
+    statusEl.textContent = 'Ready — press Analyse';
+  };
+}
+async function startCam(){
+  try{
+    stopStream();
+    stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment', width:{ideal:720} }, audio:false });
+    videoEl.src = ''; videoEl.srcObject = stream; videoEl.loop = false;
+    document.getElementById('stage').classList.add('active');
+    await videoEl.play(); sizeCanvas();
+    document.getElementById('analyse-btn').disabled = false;
+    statusEl.textContent = 'Camera live — press Analyse';
+  }catch(err){
+    statusEl.textContent = 'Camera blocked'; statusEl.classList.add('bad');
+    alert('Could not open the camera: ' + err.message + '\n\nYou can upload a video file instead.');
+  }
+}
+function stopStream(){ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } }
+function sizeCanvas(){ canvasEl.width = videoEl.videoWidth||640; canvasEl.height = videoEl.videoHeight||480; }
+
+/* ---------- geometry ---------- */
+const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
+const mid  = (a,b) => ({ x:(a.x+b.x)/2, y:(a.y+b.y)/2 });
+function ok(...n){ return n.every(k => KP[k] && KP[k].score >= MIN_SCORE); }
+
+// angle away from straight up, degrees (screen y grows downward)
+function fromVertical(a,b){ return Math.abs(Math.atan2(b.x-a.x, -(b.y-a.y)) * 180/Math.PI); }
+
+// interior angle at point b, degrees
+function angleAt(a,b,c){
+  const v1={x:a.x-b.x,y:a.y-b.y}, v2={x:c.x-b.x,y:c.y-b.y};
+  const d=(v1.x*v2.x+v1.y*v2.y)/((Math.hypot(v1.x,v1.y)||1)*(Math.hypot(v2.x,v2.y)||1));
+  return Math.acos(Math.max(-1,Math.min(1,d))) * 180/Math.PI;
+}
+// perpendicular distance of p from line a-b
+function perpDist(p,a,b){
+  const L=Math.hypot(b.x-a.x,b.y-a.y)||1;
+  return Math.abs((b.x-a.x)*(a.y-p.y)-(a.x-p.x)*(b.y-a.y))/L;
+}
+
+/* ---------- per-frame measurement ---------- */
+function measure(){
+  const m = { t: videoEl.currentTime };
+  if(ok('left_shoulder','right_shoulder')) m.shoulderW = dist(KP.left_shoulder, KP.right_shoulder);
+  if(ok('left_hip','right_hip')) m.hipMid = mid(KP.left_hip, KP.right_hip);
+  if(ok('left_shoulder','right_shoulder')) m.shMid = mid(KP.left_shoulder, KP.right_shoulder);
+  // (bodyLen is derived just below, after the fallback chain)
+  if(ok('left_ankle','right_ankle')) m.ankMid = mid(KP.left_ankle, KP.right_ankle);
+  if(ok('left_knee','right_knee')) m.kneeMid = mid(KP.left_knee, KP.right_knee);
+
+  /* Scale reference, so every ratio below is body-relative rather than in pixels.
+     Feet are very often out of frame (especially filming push-ups), so fall back
+     down the body. If nothing usable is visible we leave bodyLen undefined and
+     skip the ratios entirely — never substitute 1, which would silently turn a
+     ratio into a raw pixel count. */
+  if(m.shMid && m.ankMid)       m.bodyLen = dist(m.shMid, m.ankMid);
+  else if(m.shMid && m.kneeMid) m.bodyLen = dist(m.shMid, m.kneeMid) * 1.35;
+  else if(m.shMid && m.hipMid)  m.bodyLen = dist(m.shMid, m.hipMid) * 2.2;
+  if(m.bodyLen != null && m.bodyLen < 20) m.bodyLen = null;   // too small to trust
+
+  // wrist height relative to shoulders — presses and pulls
+  if(ok('left_wrist','right_wrist') && m.shMid){
+    m.wristMid = mid(KP.left_wrist, KP.right_wrist);
+    if(m.bodyLen) m.wristAboveSh = (m.shMid.y - m.wristMid.y) / m.bodyLen;
+  }
+  // How horizontal is the body (push-up / plank detection).
+  // Use the furthest point down the body we can actually see, so feet being
+  // out of frame doesn't make a push-up look like a standing movement.
+  const farPoint = m.ankMid || m.kneeMid || m.hipMid;
+  if(m.shMid && farPoint && m.bodyLen){
+    const span = dist(m.shMid, farPoint) || 1;
+    m.horizness = 1 - Math.abs(m.shMid.y - farPoint.y) / span;        // ~1 = lying flat
+  }
+  // staggered feet — lunges
+  if(ok('left_ankle','right_ankle') && m.bodyLen){
+    m.ankleStagger = Math.abs(KP.left_ankle.y - KP.right_ankle.y) / m.bodyLen;
+  }
+
+  /* Elbow bend — drives depth on push-ups and lockout on presses.
+     Uses whichever arm the model sees more confidently. */
+  const A = ok('left_shoulder','left_elbow','left_wrist') ? 'left'
+          : ok('right_shoulder','right_elbow','right_wrist') ? 'right' : null;
+  if(A){
+    m.elbowAngle = angleAt(KP[A+'_shoulder'], KP[A+'_elbow'], KP[A+'_wrist']); // 180 = straight
+    if(m.shoulderW){
+      // how far the elbow sits out from the torso line, body-relative
+      m.elbowFlare = Math.abs(KP[A+'_elbow'].x - KP[A+'_shoulder'].x) / m.shoulderW;
+    }
+  }
+
+  const L = ok('left_hip','left_knee','left_ankle') ? 'left'
+          : ok('right_hip','right_knee','right_ankle') ? 'right' : null;
+  if(L){
+    const hip=KP[L+'_hip'], knee=KP[L+'_knee'], ankle=KP[L+'_ankle'];
+    m.side = L;
+    m.kneeAngle = angleAt(hip, knee, ankle);            // 180 = straight leg
+    const thigh = dist(hip,knee)||1, shin = dist(knee,ankle)||1;
+    m.depthRatio  = (hip.y - knee.y) / thigh;           // >0 = hip below knee
+    m.kneeOverToe = (knee.x - ankle.x) / shin;          // unsigned magnitude used later
+    if(ok(L+'_shoulder')){
+      m.torsoLean = fromVertical(hip, KP[L+'_shoulder']);
+      m.hipAngle  = angleAt(KP[L+'_shoulder'], hip, knee); // 180 = fully extended hip
+      // body-line sag: hip off the shoulder->ankle line (push-up, plank)
+      if(m.bodyLen){
+        const sagRatio = perpDist(hip, KP[L+'_shoulder'], ankle) / m.bodyLen;
+        // a real hip can't sit further off the line than the body is long
+        if(sagRatio <= 0.6) m.sag = sagRatio;
+      }
+      m.hipBelowLine = hip.y > (KP[L+'_shoulder'].y + ankle.y)/2;
+    }
+  }
+
+  /* Body-line check without the feet.
+     Filming push-ups almost always cuts the feet off, and this used to sit
+     inside the ankle-dependent block above, so the check simply vanished.
+     Measured against the shoulder-to-knee line instead. */
+  if(m.sag == null && m.bodyLen){
+    const K = ok('left_shoulder','left_hip','left_knee') ? 'left'
+            : ok('right_shoulder','right_hip','right_knee') ? 'right' : null;
+    if(K){
+      const r = perpDist(KP[K+'_hip'], KP[K+'_shoulder'], KP[K+'_knee']) / m.bodyLen;
+      if(r <= 0.6){ m.sag = r; m.sagFromKnee = true; }
+    }
+  }
+
+  if(view === 'front' && ok('left_hip','left_knee','left_ankle','right_hip','right_knee','right_ankle')){
+    const wid = m.shoulderW || dist(KP.left_hip,KP.right_hip) || 1;
+    const expL = KP.left_hip.x  + (KP.left_ankle.x  - KP.left_hip.x)  * 0.5;
+    const expR = KP.right_hip.x + (KP.right_ankle.x - KP.right_hip.x) * 0.5;
+    const centre = (KP.left_hip.x + KP.right_hip.x)/2;
+    const inL = (KP.left_knee.x  - expL) * (centre > KP.left_hip.x  ? 1 : -1);
+    const inR = (KP.right_knee.x - expR) * (centre > KP.right_hip.x ? 1 : -1);
+    m.valgus = Math.max(inL, inR) / wid;
+    m.stanceRatio = dist(KP.left_ankle, KP.right_ankle) / wid;
+    if(ok('left_shoulder','right_shoulder'))
+      m.shoulderTilt = Math.abs(KP.left_shoulder.y - KP.right_shoulder.y) / wid;
+  }
+  return m;
+}
+
+/* ---------- movement pattern classification ----------
+   Only the pattern, never the specific lift: keypoints cannot see what
+   is in someone's hands, so guessing "front squat" over "goblet squat"
+   would be invention. The user confirms the exercise. */
+const PATTERNS = {
+  squat:   { label:'Squat pattern',       keys:['squat'] },
+  hinge:   { label:'Hip hinge pattern',   keys:['deadlift','romanian','good morning','hinge','pull through','glute ham','swing'] },
+  lunge:   { label:'Lunge / split stance',keys:['lunge','split squat','step up'] },
+  press:   { label:'Overhead press',      keys:['overhead press','shoulder press','military','arnold','push press','jerk','z press','landmine press'] },
+  pull:    { label:'Vertical pull',       keys:['pull up','chin up','pulldown','muscle up'] },
+  pushup:  { label:'Push-up / plank',     keys:['push up','push-up','plank','dip'] },
+  hold:    { label:'Static hold',         keys:['plank','hold','wall sit','hang','l sit'] }
+};
+
+function classify(){
+  const s = samples;
+  const g = k => s.map(x=>x[k]).filter(v=>v!=null);
+  const rng = a => a.length ? Math.max(...a)-Math.min(...a) : 0;
+  const avg = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0;
+
+  const horiz   = avg(g('horizness'));
+  const hips    = g('hipMid');
+  const bodyLen = avg(g('bodyLen'));
+  if(!bodyLen) return { pattern:'unknown', conf:'low', hipTravel:0, hipMove:0, kneeMin:180,
+                        leanMax:0, leanRange:0, horiz:0, wristUp:0, stagger:0, bodyLen:0 };
+  // A hinge moves the hips BACKWARD more than downward, so vertical travel
+  // alone misses it entirely. Measure total hip displacement.
+  const hipTravel  = rng(hips.map(p=>p.y)) / bodyLen;
+  const hipTravelX = rng(hips.map(p=>p.x)) / bodyLen;
+  const hipMove    = Math.hypot(hipTravel, hipTravelX);
+  const kneeMin = g('kneeAngle').length ? Math.min(...g('kneeAngle')) : 180;
+  const leans   = g('torsoLean');
+  const leanMax = leans.length ? Math.max(...leans) : 0;
+  const leanRange = rng(leans);
+  const wristUp = g('wristAboveSh').filter(v=>v>0.08).length / Math.max(1,g('wristAboveSh').length);
+  const stagger = avg(g('ankleStagger'));
+
+  let pattern='unknown', conf='low';
+
+  if(horiz > 0.62){
+    // Lying horizontal. A push-up drives through the SHOULDERS — the hips
+    // barely travel — so judging this on hip movement calls every push-up a plank.
+    const shs = g('shMid');
+    const shMove = shs.length ? Math.hypot(rng(shs.map(p=>p.x)), rng(shs.map(p=>p.y))) / bodyLen : 0;
+    pattern = Math.max(shMove, hipMove) < 0.05 ? 'hold' : 'pushup';
+    conf = horiz > 0.75 ? 'high' : 'low';
+  } else if(wristUp > 0.35){
+    // arms overhead: pressing if the body stays put, pulling if it rises
+    pattern = hipTravel > 0.12 ? 'pull' : 'press';
+    conf = wristUp > 0.6 ? 'high' : 'low';
+  } else if(stagger > 0.09){
+    pattern = 'lunge'; conf = stagger > 0.15 ? 'high' : 'low';
+  } else if(leanRange > 30 && kneeMin > HINGE_KNEE_WARN){
+    // torso swings through a big arc while the knees stay long = hinge.
+    // Checked before the low-motion test, since the hips barely drop.
+    pattern = 'hinge'; conf = leanRange > 45 ? 'high' : 'low';
+  } else if(hipMove < 0.045){
+    pattern = 'hold'; conf = 'high';
+  } else if(hipTravel > 0.12 && kneeMin < 120){
+    pattern = 'squat'; conf = (kneeMin < 100 && leanMax < 60) ? 'high' : 'low';
+  } else if(hipTravel > 0.08){
+    pattern = 'squat'; conf = 'low';
+  }
+  return { pattern, conf, hipTravel, hipMove, kneeMin, leanMax, leanRange, horiz, wristUp, stagger, bodyLen };
+}
+
+/* Rep counting by peak prominence.
+   The earlier version set one pair of thresholds from the whole clip, so if
+   your first rep was deeper than the rest, the shallower ones never crossed
+   the line and went uncounted — four reps could report as one. Prominence is
+   measured locally against each peak's own neighbouring valleys instead, so
+   reps of uneven depth all count. */
+function movingAvg(a, w){
+  if(a.length < w) return a.slice();
+  const out = [];
+  for(let i=0;i<a.length;i++){
+    let s=0,n=0;
+    for(let j=Math.max(0,i-w); j<=Math.min(a.length-1,i+w); j++){ s+=a[j]; n++; }
+    out.push(s/n);
+  }
+  return out;
+}
+
+function countReps(raw, minTravel){
+  if(raw.length < 12) return 0;
+  const sig = movingAvg(raw, 2);
+  const mn=Math.min(...sig), mx=Math.max(...sig), range=mx-mn;
+  // absolute gate: below this it's a hold or camera jitter, not reps
+  if(range <= 1e-6 || (minTravel && range < minTravel)) return 0;
+
+  const minProm = range * 0.18;
+  const minSep  = 5;
+  const peaks = [];
+  for(let i=1;i<sig.length-1;i++){
+    if(sig[i] >= sig[i-1] && sig[i] > sig[i+1]){
+      let l=i, loL=sig[i];
+      while(l>0 && sig[l-1] <= sig[i]){ l--; loL=Math.min(loL, sig[l]); }
+      let r=i, loR=sig[i];
+      while(r<sig.length-1 && sig[r+1] <= sig[i]){ r++; loR=Math.min(loR, sig[r]); }
+      const prom = sig[i] - Math.max(loL, loR);
+      if(prom >= minProm) peaks.push({ i, prom });
+    }
+  }
+  peaks.sort((a,b)=>b.prom-a.prom);
+  const kept=[];
+  peaks.forEach(p=>{ if(!kept.some(k=>Math.abs(k.i-p.i) < minSep)) kept.push(p); });
+  return kept.length;
+}
+
+/* movement gate, as a fraction of body length */
+function travelGate(){
+  const b = samples.map(s=>s.bodyLen).filter(Boolean);
+  const avg = b.length ? b.reduce((x,y)=>x+y,0)/b.length : 0;
+  return avg * 0.08;
+}
+function repSignal(pattern){
+  if(pattern==='press' || pattern==='pull'){
+    return samples.map(s=>s.wristMid? -s.wristMid.y : null).filter(v=>v!=null);
+  }
+  if(pattern==='pushup'){
+    return samples.map(s=>s.shMid? s.shMid.y : null).filter(v=>v!=null);
+  }
+  return samples.map(s=>s.hipMid? s.hipMid.y : null).filter(v=>v!=null);
+}
+
+/* ---------- library matching ---------- */
+/* Keep patterns from bleeding into each other. An olympic clean involves a
+   hinge, but offering "Hang Clean" when someone filmed a deadlift is noise. */
+const PATTERN_EXCLUDE = {
+  squat:  ['split','lunge','burpee','thruster','jump','step up'],
+  hinge:  ['squat','clean','snatch','jerk','swing clean'],
+  lunge:  ['thruster','press','clean'],
+  press:  ['bench','floor press','pin press'],
+  pull:   ['straight arm','pull through','pullover'],
+  pushup: ['plus'],
+  hold:   ['clean','snatch','jerk','row','curl']
+};
+
+/* The lift most people filming this pattern are actually doing. Pinned first
+   so the default guess is the common case, not the shortest name. */
+const PATTERN_DEFAULT = {
+  squat:'back-squat', hinge:'deadlift', lunge:'lunge', press:'ohp',
+  pull:'pullup', pushup:'pushup', hold:'plank'
+};
+
+function libraryMatches(pattern){
+  if(typeof exercises === 'undefined' || !PATTERNS[pattern]) return [];
+  const keys = PATTERNS[pattern].keys;
+  const bad  = PATTERN_EXCLUDE[pattern] || [];
+
+  const scored = exercises.map(ex => {
+    const name = ex.name.toLowerCase();
+    const alias = (ex.aliases||[]).join(' ').toLowerCase();
+    if(bad.some(b => name.includes(b) || alias.includes(b))) return null;
+    // a hit in the name is far stronger evidence than a hit in an alias
+    let score = 0;
+    keys.forEach(k => {
+      if(name.includes(k))  score += 10;
+      else if(alias.includes(k)) score += 3;
+    });
+    return score > 0 ? { ex, score } : null;
+  }).filter(Boolean);
+
+  let list = scored
+    .sort((a,b) => b.score - a.score || a.ex.name.length - b.ex.name.length)
+    .map(s => s.ex);
+
+  // hoist the canonical lift to the front, adding it if scoring dropped it
+  const defId = PATTERN_DEFAULT[pattern];
+  if(defId){
+    const i = list.findIndex(e => e.id === defId);
+    if(i > 0) list.unshift(list.splice(i,1)[0]);
+    else if(i === -1){
+      const d = exercises.find(e => e.id === defId);
+      if(d) list.unshift(d);
+    }
+  }
+  return list.slice(0, 8);
+}
+
+/* ---------- drawing ---------- */
+const SKELETON=[['left_shoulder','right_shoulder'],['left_shoulder','left_elbow'],['left_elbow','left_wrist'],
+['right_shoulder','right_elbow'],['right_elbow','right_wrist'],['left_shoulder','left_hip'],['right_shoulder','right_hip'],
+['left_hip','right_hip'],['left_hip','left_knee'],['left_knee','left_ankle'],['right_hip','right_knee'],['right_knee','right_ankle']];
+
+function draw(flag){
+  ctx.clearRect(0,0,canvasEl.width,canvasEl.height);
+  const colour = flag==='bad' ? '#e8542a' : flag==='warn' ? '#d4a03c' : '#3fa873';
+  ctx.lineWidth = Math.max(2, canvasEl.width/220);
+  ctx.strokeStyle = colour; ctx.fillStyle = colour;
+  SKELETON.forEach(([a,b])=>{ if(ok(a,b)){ ctx.beginPath(); ctx.moveTo(KP[a].x,KP[a].y); ctx.lineTo(KP[b].x,KP[b].y); ctx.stroke(); }});
+  Object.values(KP).forEach(p=>{ if(p.score>=MIN_SCORE){ ctx.beginPath(); ctx.arc(p.x,p.y,ctx.lineWidth*1.5,0,Math.PI*2); ctx.fill(); }});
+}
+
+/* ---------- live readout ---------- */
+function renderLive(m){
+  const cells=[];
+  const cell=(l,v,c)=>cells.push('<div class="metric '+(c||'')+'"><span>'+l+'</span><b>'+v+'</b></div>');
+  if(view==='side'){
+    if(m.depthRatio!=null) cell('Depth', m.depthRatio>0?'Below //':'Above //', m.depthRatio>0?'ok':'');
+    if(m.kneeOverToe!=null){ const k=Math.abs(m.kneeOverToe);
+      cell('Knee past ankle',(k*100).toFixed(0)+'%', k>KNEE_BAD?'bad':k>KNEE_WARN?'warn':'ok'); }
+    if(m.torsoLean!=null) cell('Torso lean', m.torsoLean.toFixed(0)+'°', m.torsoLean>LEAN_WARN?'warn':'ok');
+    if(m.sag!=null && m.horizness>0.6) cell('Body line', m.sag>SAG_BAD?'Sagging':'Straight', m.sag>SAG_BAD?'bad':m.sag>SAG_WARN?'warn':'ok');
+  } else {
+    if(m.valgus!=null) cell('Knee cave', m.valgus>VALGUS_WARN?'Inward':'Tracking', m.valgus>VALGUS_BAD?'bad':m.valgus>VALGUS_WARN?'warn':'ok');
+    if(m.stanceRatio!=null) cell('Stance', m.stanceRatio.toFixed(2)+'× sh', (m.stanceRatio<.75||m.stanceRatio>1.8)?'warn':'ok');
+    if(m.shoulderTilt!=null) cell('Even', m.shoulderTilt>0.09?'Tilted':'Level', m.shoulderTilt>0.09?'warn':'ok');
+  }
+  document.getElementById('live').innerHTML = cells.join('');
+}
+
+/* ---------- loop ---------- */
+async function startAnalysis(){
+  await loadModel();
+  samples=[]; liveReps=0; running=true; chosenExercise=null;
+  Object.keys(smoothKP).forEach(k=>delete smoothKP[k]);
+  document.getElementById('results').classList.remove('active');
+  document.getElementById('stop-btn').style.display='';
+  document.getElementById('analyse-btn').disabled=true;
+  document.getElementById('repcount').style.display='';
+  document.getElementById('repcount').textContent='0';
+  statusEl.classList.remove('bad');
+  if(videoEl.srcObject){
+    statusEl.textContent='Recording — press Stop when done';
+    loop();
+  } else {
+    // Uploaded file: step through it frame by frame rather than playing it.
+    // Playing and sampling whatever the screen happens to show means a slow
+    // phone silently skips most of the clip — which is how a 4-rep set ends
+    // up with too few samples to count properly. Stepping guarantees coverage.
+    statusEl.textContent='Analysing…';
+    await stepThroughVideo();
+  }
+}
+
+async function stepThroughVideo(){
+  const STEP = 1/15;                       // 15 samples per second of footage
+  const dur = videoEl.duration || 0;
+  keyframes = [];
+  if(!isFinite(dur) || dur <= 0){ videoEl.play(); loop(); return; }  // stream of unknown length
+  videoEl.pause();
+  for(let t=0; t<dur && running; t+=STEP){
+    await seekTo(t);
+    let poses=[];
+    try{ poses = await detector.estimatePoses(videoEl,{flipHorizontal:false}); }catch(e){}
+    if(poses.length){
+      Object.keys(KP).forEach(k=>delete KP[k]);
+      poses[0].keypoints.forEach(p=>{ KP[p.name]=p; });
+      smoothKeypoints();
+      const m=measure();
+      const conf=Object.values(KP).filter(p=>p.score>=MIN_SCORE).length;
+      if(conf>=8) samples.push(m);
+      let flag='ok';
+      if(view==='side' && m.kneeOverToe!=null && Math.abs(m.kneeOverToe)>KNEE_BAD) flag='bad';
+      if(view==='front' && m.valgus!=null && m.valgus>VALGUS_BAD) flag='bad';
+      draw(flag); renderLive(m);
+
+      // Capture up to 3 keyframe snapshots for Vision AI
+      const pct = Math.round(t/dur * 100);
+      if((keyframes.length === 0 && pct >= 15) || (keyframes.length === 1 && pct >= 50) || (keyframes.length === 2 && pct >= 85)){
+        try { keyframes.push(canvasEl.toDataURL('image/jpeg', 0.7)); } catch(e){}
+      }
+
+      statusEl.textContent = 'Analysing — '+samples.length+' frames ('+pct+'%)';
+    }
+  }
+  finish();
+}
+
+function seekTo(t){
+  return new Promise(res=>{
+    const done=()=>{ videoEl.removeEventListener('seeked',done); res(); };
+    videoEl.addEventListener('seeked',done);
+    videoEl.currentTime = t;
+    setTimeout(done, 400);                 // don't hang on a stubborn seek
+  });
+}
+
+async function loop(){
+  if(!running) return;
+  if(videoEl.readyState>=2){
+    let poses=[];
+    try{ poses = await detector.estimatePoses(videoEl,{flipHorizontal:false}); }catch(e){}
+    if(poses.length){
+      Object.keys(KP).forEach(k=>delete KP[k]);
+      poses[0].keypoints.forEach(p=>{ KP[p.name]=p; });
+      smoothKeypoints();
+      const m=measure();
+      const conf=Object.values(KP).filter(p=>p.score>=MIN_SCORE).length;
+      if(conf>=8) samples.push(m);
+
+      // live rep counter, updated as we go
+      if(samples.length>12 && samples.length%5===0){
+        const c=classify();
+        const r=countReps(repSignal(c.pattern), travelGate());
+        if(r!==liveReps){ liveReps=r; document.getElementById('repcount').textContent=r; }
+      }
+
+      let flag='ok';
+      if(view==='side' && m.kneeOverToe!=null && Math.abs(m.kneeOverToe)>KNEE_BAD) flag='bad';
+      if(view==='side' && m.sag!=null && m.horizness>0.6 && m.sag>SAG_BAD) flag='bad';
+      if(view==='front' && m.valgus!=null && m.valgus>VALGUS_BAD) flag='bad';
+      draw(flag); renderLive(m);
+      statusEl.textContent = conf<8 ? 'Body not fully visible' : 'Tracking — '+samples.length+' frames';
+      statusEl.classList.toggle('bad', conf<8);
+    }
+  }
+  requestAnimationFrame(loop);
+}
+
+function stopAll(){ finish(); }
+function finish(){
+  running=false; videoEl.pause(); stopStream();
+  document.getElementById('stop-btn').style.display='none';
+  document.getElementById('analyse-btn').disabled=false;
+  statusEl.textContent='Done';
+  report();
+}
+
+/* ---------- checks: geometry -> plain findings ---------- */
+const ICON={
+  pass:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#3fa873" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 9.5 18 20 6"/></svg>',
+  fail:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#e8542a" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>',
+  warn:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#d4a03c" stroke-width="2.2" stroke-linecap="round"><path d="M12 3.5 1.8 20.5h20.4z"/><line x1="12" y1="10" x2="12" y2="14.5"/><line x1="12" y1="17.4" x2="12" y2="17.5"/></svg>',
+  na:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="#625d54" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="8.5" y1="12" x2="15.5" y2="12"/></svg>'
+};
+
+/* Each check returns {kind, note, tags} — tags are keywords used to
+   attach the check to one of the exercise's own written cues. */
+function runChecks(pattern){
+  const s=samples, out=[];
+  const g=k=>s.map(x=>x[k]).filter(v=>v!=null);
+  const push=(kind,note,tags)=>out.push({kind,note,tags});
+
+  if(view==='side'){
+    const knees=g('kneeOverToe').map(Math.abs);
+    if(knees.length && (pattern==='squat'||pattern==='lunge')){
+      const p=Math.max(...knees);
+      push(p>KNEE_BAD?'fail':p>KNEE_WARN?'warn':'pass',
+        'Knee reached '+(p*100).toFixed(0)+'% of shin length past the ankle.',
+        ['knee','toe','shin','track']);
+    }
+    const depth=g('depthRatio');
+    if(depth.length && (pattern==='squat'||pattern==='lunge')){
+      const p=Math.max(...depth);
+      push(p>0?'pass':'warn',
+        p>0 ? 'Hip finished below the knee at the lowest point.'
+            : 'Hip stayed above the knee — depth was partial.',
+        ['depth','descend','lower','parallel','floor']);
+    }
+    const lean=g('torsoLean');
+    if(lean.length && (pattern==='squat'||pattern==='lunge'||pattern==='hinge')){
+      const p=Math.max(...lean);
+      if(pattern==='hinge'){
+        push(p>25?'pass':'warn',
+          p>25 ? 'Torso hinged forward to '+p.toFixed(0)+'° from vertical.'
+               : 'Torso only reached '+p.toFixed(0)+'° — barely a hinge.',
+          ['hinge','hip','flat back','back']);
+      } else {
+        push(p>LEAN_WARN?'warn':'pass',
+          'Maximum torso lean '+p.toFixed(0)+'° from vertical.',
+          ['chest','torso','upright','tall']);
+      }
+    }
+    const kneeAng=g('kneeAngle');
+    if(kneeAng.length && pattern==='hinge'){
+      const mn=Math.min(...kneeAng);
+      push(mn>HINGE_KNEE_WARN?'pass':'warn',
+        mn>HINGE_KNEE_WARN ? 'Knees stayed fairly straight ('+mn.toFixed(0)+'° minimum) — a hinge, not a squat.'
+                           : 'Knees bent to '+mn.toFixed(0)+'° — this turned into a squat rather than a hinge.',
+        ['knee','slight','bend','hinge']);
+    }
+    const sag=g('sag');
+    if(sag.length && (pattern==='pushup'||pattern==='hold')){
+      const p=Math.max(...sag);
+      const viaKnee = s.some(x=>x.sagFromKnee);
+      const ref = viaKnee ? 'shoulder-to-knee line (feet were out of frame)' : 'shoulder-to-ankle line';
+      push(p>SAG_BAD?'fail':p>SAG_WARN?'warn':'pass',
+        p>SAG_WARN ? 'Hips drifted '+(p*100).toFixed(0)+'% of body length off the '+ref+'.'
+                   : 'Body stayed in a straight line, hips within '+(p*100).toFixed(0)+'% of the '+ref+'.',
+        ['line','hip','sag','straight','core','glute','pike']);
+    }
+    // depth of the descent, from how far the elbow bends
+    const elb=g('elbowAngle');
+    if(elb.length && pattern==='pushup'){
+      const mn=Math.min(...elb);
+      push(mn<100?'pass':mn<125?'warn':'fail',
+        mn<100 ? 'Elbows bent to '+mn.toFixed(0)+'° at the bottom — a full range rep.'
+               : 'Elbows only bent to '+mn.toFixed(0)+'° — the descent stopped short of the floor.',
+        ['lower','chest','floor','control','depth','range']);
+    }
+    const flare=g('elbowFlare');
+    if(flare.length && pattern==='pushup'){
+      const p=Math.max(...flare);
+      push(p>1.05?'warn':'pass',
+        p>1.05 ? 'Elbows travelled well out from the torso — closer to a 90° flare.'
+               : 'Elbows stayed reasonably close to the body.',
+        ['elbow','flare','angle','track','tuck']);
+    }
+    const wr=g('wristAboveSh');
+    if(wr.length && pattern==='press'){
+      const p=Math.max(...wr);
+      push(p>0.18?'pass':'warn',
+        p>0.18 ? 'Arms reached a full overhead position.' : 'Arms did not reach a clear lockout overhead.',
+        ['lock','overhead','press','extend']);
+      const hipA=g('hipAngle');
+      if(hipA.length){
+        const mx=Math.max(...hipA);
+        push(mx>195?'warn':'pass',
+          mx>195 ? 'Hips pushed forward past neutral — that is the lower-back arch.'
+                 : 'Hips stayed roughly neutral through the press.',
+          ['arch','glute','brace','core','back']);
+      }
+    }
+  } else {
+    const val=g('valgus');
+    if(val.length && (pattern==='squat'||pattern==='lunge'||pattern==='hinge')){
+      const p=Math.max(...val);
+      push(p>VALGUS_BAD?'fail':p>VALGUS_WARN?'warn':'pass',
+        p>VALGUS_WARN ? 'Knee drifted '+(p*100).toFixed(1)+'% of shoulder width inside the hip-to-ankle line.'
+                      : 'Knees tracked in line between hip and ankle.',
+        ['knee','cave','track','toe','out']);
+    }
+    const st=g('stanceRatio');
+    if(st.length){
+      const a=st.reduce((x,y)=>x+y,0)/st.length;
+      const odd=a<0.75||a>1.8;
+      push(odd?'warn':'pass',
+        'Average stance '+a.toFixed(2)+'× shoulder width.',
+        ['feet','stance','width','shoulder-width']);
+    }
+    const tilt=g('shoulderTilt');
+    if(tilt.length){
+      const p=Math.max(...tilt);
+      push(p>0.09?'warn':'pass',
+        p>0.09 ? 'Shoulders tilted noticeably — one side worked harder.' : 'Shoulders stayed level through the set.',
+        ['even','level','square','symmetr']);
+    }
+  }
+  return out;
+}
+
+/* ---------- report ---------- */
+function report(){
+  const res=document.getElementById('results');
+  res.classList.add('active');
+  document.getElementById('picker-wrap').style.display='none';
+  document.getElementById('checklist-wrap').style.display='none';
+
+  if(samples.length < MIN_GOOD_FRAMES){
+    document.getElementById('detected').innerHTML =
+      '<div><div class="big" style="color:var(--warn)">Not enough clean frames</div>'+
+      '<div class="sub">The model could not see your whole body clearly for long enough. Usually the framing cut off '+
+      'your feet or head, the light was low, or clothing hid the joints. Re-film with your whole body in shot.</div></div>'+
+      '<div class="reps"><b>'+samples.length+'</b><span>frames</span></div>';
+    return;
+  }
+
+  const c = classify();
+  // If the user told us the exercise, trust that over the guess.
+  const declared = userPicked ? patternOf(userPicked) : null;
+  const activePattern = declared || c.pattern;
+  const reps = countReps(repSignal(activePattern), travelGate());
+  lastAnalysis = { c: Object.assign({}, c, { pattern: activePattern }), reps };
+
+  if(userPicked){
+    // detection still runs, purely to warn about a wrong camera angle or a mis-tap
+    const agrees = declared && c.pattern === declared;
+    document.getElementById('detected').innerHTML =
+      '<div><div class="big">'+userPicked.name+
+        '<span class="conf '+(agrees?'high':'low')+'">'+(agrees?'movement matches':'check angle')+'</span></div>'+
+       '<div class="sub">'+(agrees
+          ? 'Your joints moved the way this lift should. Checks below are the ' + userPicked.name + ' cues.'
+          : 'You selected this, but the movement looked more like a ' +
+            (PATTERNS[c.pattern] ? PATTERNS[c.pattern].label.toLowerCase() : 'different pattern') +
+            '. Usually that means the camera angle hid the movement, or the whole body was not in frame. Checks below still use your selection.')+
+       '</div></div>'+
+      '<div class="reps"><b>'+reps+'</b><span>reps</span></div>';
+    document.getElementById('picker-wrap').style.display='none';
+    renderChecklist(userPicked);
+    return;
+  }
+
+  const label = PATTERNS[c.pattern] ? PATTERNS[c.pattern].label : 'Movement not recognised';
+  document.getElementById('detected').innerHTML =
+    '<div><div class="big">'+label+
+      '<span class="conf '+(c.conf==='high'?'high':'low')+'">'+(c.conf==='high'?'confident':'best guess')+'</span></div>'+
+     '<div class="sub">'+(c.pattern==='unknown'
+        ? 'Could not pin down the movement. Pick the closest exercise below, or re-film with your whole body in frame.'
+        : 'Detected from joint movement only — the camera cannot see what is in your hands, so confirm the exact lift below.')+
+     '</div></div>'+
+    '<div class="reps"><b>'+reps+'</b><span>reps</span></div>';
+
+  const matches = libraryMatches(c.pattern);
+  const picker = document.getElementById('picker');
+  if(matches.length){
+    picker.innerHTML = matches.map(m=>'<button class="pick" onclick="choose(\''+m.id+'\')">'+m.name+'</button>').join('');
+    document.getElementById('picker-wrap').style.display='';
+    choose(matches[0].id);   // default to the most common, user can change
+  } else {
+    picker.innerHTML = '<span style="color:var(--muted-dim);font-size:13px">No library match for this pattern yet.</span>';
+    document.getElementById('picker-wrap').style.display='';
+    renderChecklist(null);
+  }
+}
+
+function choose(id){
+  chosenExercise = (typeof exercises!=='undefined') ? exercises.find(e=>e.id===id) : null;
+  document.querySelectorAll('.pick').forEach(b=>b.classList.toggle('active', b.textContent===(chosenExercise&&chosenExercise.name)));
+  renderChecklist(chosenExercise);
+}
+
+function renderChecklist(ex){
+  const wrap=document.getElementById('checklist-wrap');
+  const list=document.getElementById('checklist');
+  wrap.style.display='';
+  const checks = runChecks(lastAnalysis ? lastAnalysis.c.pattern : 'unknown');
+
+  if(!ex){
+    list.innerHTML = checks.length
+      ? checks.map(ch=>'<div class="cue '+ch.kind+'">'+ICON[ch.kind]+'<div class="txt">'+ch.note+'</div></div>').join('')
+      : '<div class="cue na">'+ICON.na+'<div class="txt">Nothing measurable from this angle.</div></div>';
+    document.getElementById('mistake-wrap').innerHTML='';
+    setDisclaimer();
+    return;
+  }
+
+  /* Attach measurements to the exercise's own written cues.
+     Assign by BEST match, not first match — otherwise "core braced before
+     descending" steals the depth result from "Descend to a depth you control"
+     purely by appearing earlier in the list. */
+  const pairs = [];
+  ex.cues.forEach((cue, ci) => {
+    const low = cue.toLowerCase();
+    checks.forEach((ch, hi) => {
+      const score = ch.tags.reduce((n,t) => n + (low.includes(t) ? 1 : 0), 0);
+      if(score > 0) pairs.push({ ci, hi, score });
+    });
+  });
+  pairs.sort((a,b) => b.score - a.score);
+
+  const cueHit = {}, usedCheck = new Set();
+  pairs.forEach(p => {
+    if(cueHit[p.ci] === undefined && !usedCheck.has(p.hi)){
+      cueHit[p.ci] = p.hi; usedCheck.add(p.hi);
+    }
+  });
+
+  const rows = ex.cues.map((cue, ci) => {
+    const hi = cueHit[ci];
+    if(hi !== undefined){
+      const hit = checks[hi];
+      return '<div class="cue '+hit.kind+'">'+ICON[hit.kind]+
+        '<div class="txt">'+cue+'<span class="note">'+hit.note+'</span></div></div>';
+    }
+    return '<div class="cue na">'+ICON.na+
+      '<div class="txt">'+cue+'<span class="note">The camera can\'t verify this one.</span></div></div>';
+  });
+
+  // any measurement that didn't map onto a written cue still gets shown
+  const extra = checks.filter((ch,i) => !usedCheck.has(i))
+    .map(ch=>'<div class="cue '+ch.kind+'">'+ICON[ch.kind]+
+      '<div class="txt">Also measured<span class="note">'+ch.note+'</span></div></div>');
+
+  list.innerHTML = rows.concat(extra).join('');
+
+  document.getElementById('mistake-wrap').innerHTML =
+    '<div class="sec">The mistake to watch for</div>'+
+    '<div class="mistake-box"><b>'+ex.mistakeTitle+'</b>'+
+      ex.mistakePoints.map(p=>'• '+p).join('<br>')+
+      '<div style="margin-top:11px;color:var(--muted);font-size:12.5px;line-height:1.6">'+ex.why+'</div></div>';
+  setDisclaimer();
+}
+
+/* Run last: these touch PATTERNS / MODEL_HINTS / exercises, all declared with
+   const above, so calling them earlier hits the temporal dead zone. */
+function init(){
+  buildExerciseList();
+  setModel('accurate'); setModel('fast');   // populates the hint text
+  setView('side');
+}
+init();
+
+function setDisclaimer(){
+  document.getElementById('disclaim').innerHTML =
+    'Measured across <b>'+samples.length+'</b> usable frames from a single camera. A green tick means the geometry '+
+    'the camera could see matched the cue — not that your form was good overall. Cues marked as unverifiable were '+
+    'not assessed at all. A phone has no depth perception and small changes in camera angle change the numbers, so '+
+    'treat this as a prompt to look at your form, not a verdict on it. Nothing here replaces a coach or a clinician.';
+}
+
+async function requestAICoach() {
+  const btn = document.getElementById('ai-coach-btn');
+  const resEl = document.getElementById('ai-coach-result');
+  btn.disabled = true;
+  btn.textContent = '⏳ Analyzing video form with AI...';
+  resEl.style.display = 'block';
+  resEl.innerHTML = '<em style="color:var(--muted)">AI Coach is examining your movement frames and joint metrics...</em>';
+
+  const exerciseName = (userPicked && userPicked.name) || (chosenExercise && chosenExercise.name) || 'Exercise';
+  const reps = lastAnalysis ? lastAnalysis.reps : 0;
+  const pattern = lastAnalysis ? lastAnalysis.c.pattern : 'unknown';
+
+  const g = k => samples.map(x=>x[k]).filter(v=>v!=null);
+  const metrics = {
+    kneeOverToe: g('kneeOverToe').length ? Math.max(...g('kneeOverToe').map(Math.abs)) : 0,
+    valgus: g('valgus').length ? Math.max(...g('valgus')) : 0,
+    torsoLean: g('torsoLean').length ? Math.max(...g('torsoLean')) : 0,
+    sag: g('sag').length ? Math.max(...g('sag')) : 0
+  };
+
+  try {
+    const res = await fetch('/.netlify/functions/video-form-check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        exerciseName,
+        reps,
+        pattern,
+        metrics,
+        frames: keyframes
+      })
+    });
+
+    const data = await res.json();
+    btn.disabled = false;
+    btn.textContent = '✨ Refresh AI Vision Analysis';
+
+    if (data.result) {
+      // Save the analysis to our new Supabase table!
+      const eSlug = (userPicked && userPicked.id) || (chosenExercise && chosenExercise.id) || 'unknown';
+      try {
+        await supabase.from('form_checks').insert([{
+          exercise_slug: eSlug,
+          reps: reps,
+          metrics: metrics,
+          ai_feedback: data.result
+        }]);
+      } catch (err) {
+        console.error('Failed to save to Supabase', err);
+      }
+
+      // Format markdown line breaks & bold headers to HTML
+      let html = data.result
+        .replace(/^### (.*$)/gim, '<strong style="color:var(--chalk);font-family:\'Oswald\';font-size:15px;display:block;margin-top:10px;">$1</strong>')
+        .replace(/^- (.*$)/gim, '<div style="margin-left:8px;margin-bottom:4px;">• $1</div>')
+        .replace(/\n/g, '<br>');
+      
+      if(data.note) {
+        html += '<div style="margin-top:12px;font-size:12px;color:var(--muted);border-top:1px solid var(--rule);padding-top:8px;">ℹ️ ' + data.note + '</div>';
+      }
+      resEl.innerHTML = html;
+    } else {
+      resEl.innerHTML = '<span style="color:var(--mistake)">Could not complete AI analysis. Please try again.</span>';
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '✨ Get AI Vision Form Analysis';
+    resEl.innerHTML = '<span style="color:var(--mistake)">Network or server error during AI analysis.</span>';
+  }
+}
+</script>
+</body>
+</html>

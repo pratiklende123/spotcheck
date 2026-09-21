@@ -1,0 +1,12 @@
+# scratch files and node_modules
+scratch/
+node_modules/
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Vercel build output
+.vercel/

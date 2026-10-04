@@ -224,42 +224,76 @@
 <script>
   const _sbUrl = 'https://oqrmuqmkhkovyavycrgi.supabase.co';
   const _sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xcm11cW1raGtvdnlhdnljcmdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4ODU3MTQsImV4cCI6MjEwMzQ2MTcxNH0.TcihYBeTU-cIMQFxBlfZuL17Jh-SH0GpvnP0KqhLqA4';
-  const supabase = window.supabase.createClient(_sbUrl, _sbKey);
+  let _supabaseInstance = null;
+  function getSupabase(){
+    if(!_supabaseInstance && window.supabase && typeof window.supabase.createClient === 'function'){
+      try { _supabaseInstance = window.supabase.createClient(_sbUrl, _sbKey); } catch(e){ console.warn(e); }
+    }
+    return _supabaseInstance;
+  }
 
 /* ============================================================
    SpotCheck — client-side form measurement (prototype)
-
-   Pipeline:
-     MoveNet (in-browser) -> joint coords per frame
-       -> movement-pattern classification + rep count
-       -> match to the SpotCheck exercise library
-       -> check that exercise's real cues against measurable geometry
-
-   No frame leaves the device. There is no server call in this file.
-   Body video is sensitive data; keeping it local removes most of the
-   privacy burden rather than trying to manage it.
    ============================================================ */
+
+/* Movement patterns and keyword mappings */
+const PATTERNS = {
+  squat:   { label:'Squat pattern',       keys:['squat'] },
+  hinge:   { label:'Hip hinge pattern',   keys:['deadlift','romanian','good morning','hinge','pull through','glute ham','swing'] },
+  lunge:   { label:'Lunge / split stance',keys:['lunge','split squat','step up'] },
+  press:   { label:'Overhead press',      keys:['overhead press','shoulder press','military','arnold','push press','jerk','z press','landmine press'] },
+  pull:    { label:'Vertical pull',       keys:['pull up','chin up','pulldown','muscle up'] },
+  pushup:  { label:'Push-up / plank',     keys:['push up','push-up','plank','dip'] },
+  hold:    { label:'Static hold',         keys:['plank','hold','wall sit','hang','l sit'] }
+};
+
+const PATTERN_EXCLUDE = {
+  squat:  ['split','lunge','burpee','thruster','jump','step up'],
+  hinge:  ['squat','clean','snatch','jerk','swing clean'],
+  lunge:  ['thruster','press','clean'],
+  press:  ['bench','floor press','pin press'],
+  pull:   ['straight arm','pull through','pullover'],
+  pushup: ['plus'],
+  hold:   ['clean','snatch','jerk','row','curl']
+};
+
+const PATTERN_DEFAULT = {
+  squat:'back-squat', hinge:'deadlift', lunge:'lunge', press:'ohp',
+  pull:'pullup', pushup:'pushup', hold:'plank'
+};
+
+const BEST_VIEW = {
+  squat:'either', hinge:'side', lunge:'side', press:'side',
+  pull:'front', pushup:'side', hold:'side'
+};
+
+const VIEW_HINTS = {
+  side: 'Side-on measures depth, knee travel past the ankle, torso lean, and body line on push-ups and planks. It cannot see knees caving inward.',
+  front: 'Facing the camera measures knees caving inward, stance width, and left/right evenness. It cannot measure depth or torso lean reliably.'
+};
+
+const MODEL_HINTS = {
+  fast: 'MoveNet Lightning — runs smoothly on most phones. Fine for clear, well-lit clips.',
+  accurate: 'MoveNet Thunder — noticeably better at holding onto joints in poor light or baggy clothing. Slower, but it costs nothing extra; it just works your phone harder.'
+};
 
 const KP = {};
 const MIN_SCORE = 0.35;
 const MIN_GOOD_FRAMES = 12;
 
-/* Thresholds. Deliberately forgiving — a checker that flags healthy reps
-   stops being trusted. Tune these once you have real gym footage. */
-const VALGUS_WARN = 0.08, VALGUS_BAD = 0.15;   // knee inside hip->ankle line / shoulder width
-const KNEE_WARN   = 0.35, KNEE_BAD   = 0.55;   // knee past ankle / shin length
-const LEAN_WARN   = 55;                        // torso degrees from vertical (squat)
-const SAG_WARN    = 0.06, SAG_BAD    = 0.11;   // hip off the shoulder-ankle line / body length
-const HINGE_KNEE_WARN = 100;                   // knee angle below this = squatting a hinge
+/* Thresholds */
+const VALGUS_WARN = 0.08, VALGUS_BAD = 0.15;
+const KNEE_WARN   = 0.35, KNEE_BAD   = 0.55;
+const LEAN_WARN   = 55;
+const SAG_WARN    = 0.06, SAG_BAD    = 0.11;
+const HINGE_KNEE_WARN = 100;
 
 let detector = null, view = 'side', running = false, stream = null;
 let samples = [], keyframes = [], liveReps = 0, chosenExercise = null, lastAnalysis = null;
-let modelKind = 'fast';          // 'fast' = Lightning, 'accurate' = Thunder
-let userPicked = null;           // exercise the user chose up front, if any
-const smoothKP = {};             // exponential moving average of each joint
+let modelKind = 'fast';
+let userPicked = null;
+const smoothKP = {};
 
-/* Joint positions jitter frame to frame. Smoothing them before measuring
-   removes most false readings. Free — it's just arithmetic. */
 const SMOOTH_A = 0.6;
 function smoothKeypoints(){
   Object.keys(KP).forEach(n => {
@@ -279,22 +313,22 @@ const canvasEl = document.getElementById('canvas');
 const ctx = canvasEl.getContext('2d');
 const statusEl = document.getElementById('status');
 
-const VIEW_HINTS = {
-  side: 'Side-on measures depth, knee travel past the ankle, torso lean, and body line on push-ups and planks. It cannot see knees caving inward.',
-  front: 'Facing the camera measures knees caving inward, stance width, and left/right evenness. It cannot measure depth or torso lean reliably.'
-};
 function setView(v){
   view = v;
   document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === v));
-  document.getElementById('view-hint').textContent = VIEW_HINTS[v];
+  const vHint = document.getElementById('view-hint');
+  if(vHint && VIEW_HINTS[v]) vHint.textContent = VIEW_HINTS[v];
 }
-setView('side');
 
-/* ---------- pick the exercise up front ----------
-   Choosing first is more reliable than detecting: we skip the guess entirely
-   and run the checks that belong to that lift. Detection still runs quietly
-   in the background as a sanity check on the camera angle. */
+function setModel(k){
+  modelKind = k; detector = null;
+  document.querySelectorAll('[data-model]').forEach(b => b.classList.toggle('active', b.dataset.model === k));
+  const mHint = document.getElementById('model-hint');
+  if(mHint && MODEL_HINTS[k]) mHint.textContent = MODEL_HINTS[k];
+}
+
 function patternOf(ex){
+  if(!ex) return null;
   const hay = (ex.name + ' ' + (ex.aliases||[]).join(' ')).toLowerCase();
   for(const p of Object.keys(PATTERNS)){
     if((PATTERN_EXCLUDE[p]||[]).some(b => hay.includes(b))) continue;
@@ -303,31 +337,26 @@ function patternOf(ex){
   return null;
 }
 
-/* which camera angle actually answers something for this pattern */
-const BEST_VIEW = {
-  squat:'either', hinge:'side', lunge:'side', press:'side',
-  pull:'front', pushup:'side', hold:'side'
-};
-
 function buildExerciseList(){
   if(typeof exercises === 'undefined') return;
-  document.getElementById('ex-list').innerHTML =
-    exercises.map(e => '<option value="'+e.name+'">').join('');
+  const listEl = document.getElementById('ex-list');
+  if(listEl) listEl.innerHTML = exercises.map(e => '<option value="'+e.name+'">').join('');
 }
 
 function pickExercise(val){
   const hint = document.getElementById('ex-hint');
   const input = document.getElementById('ex-input');
   if(!val){
-    userPicked = null; input.value = '';
-    document.getElementById('auto-btn').classList.add('active');
-    hint.textContent = 'Nothing selected — the movement pattern will be detected from your joints instead.';
+    userPicked = null; if(input) input.value = '';
+    const autoBtn = document.getElementById('auto-btn');
+    if(autoBtn) autoBtn.classList.add('active');
+    if(hint) hint.textContent = 'Nothing selected — the movement pattern will be detected from your joints instead.';
     return;
   }
-  document.getElementById('auto-btn').classList.remove('active');
+  const autoBtn = document.getElementById('auto-btn');
+  if(autoBtn) autoBtn.classList.remove('active');
   const q = val.trim().toLowerCase();
   const ex = (typeof exercises === 'undefined') ? null :
-    // exact id, exact name, then alias, then a unique partial name match
     exercises.find(e => e.id.toLowerCase() === q)
     || exercises.find(e => e.name.toLowerCase() === q)
     || exercises.find(e => (e.aliases||[]).some(a => a === q))
@@ -335,7 +364,7 @@ function pickExercise(val){
           ? exercises.find(e => e.name.toLowerCase().includes(q)) : null);
   if(!ex){
     userPicked = null;
-    hint.textContent = 'Keep typing — pick one from the list to tailor the checks.';
+    if(hint) hint.textContent = 'Keep typing — pick one from the list to tailor the checks.';
     return;
   }
   userPicked = ex;
@@ -345,20 +374,8 @@ function pickExercise(val){
   if(!pat) msg += ' No camera-checkable geometry for this one yet — you\'ll still get the written cues and the mistake to watch for.';
   else if(best === 'either') msg += ' Either camera angle works; side-on gives depth and knee travel, front-on gives knee cave.';
   else msg += ' Film ' + (best === 'side' ? 'side-on' : 'facing the camera') + ' for this one — the other angle can\'t see much of it.';
-  hint.textContent = msg;
+  if(hint) hint.textContent = msg;
   if(pat && best && best !== 'either') setView(best);
-}
-
-/* ---------- model ---------- */
-const MODEL_HINTS = {
-  fast: 'MoveNet Lightning — runs smoothly on most phones. Fine for clear, well-lit clips.',
-  accurate: 'MoveNet Thunder — noticeably better at holding onto joints in poor light or baggy clothing. Slower, but it costs nothing extra; it just works your phone harder.'
-};
-function setModel(k){
-  if(k === modelKind) return;
-  modelKind = k; detector = null;      // force a reload with the other model
-  document.querySelectorAll('[data-model]').forEach(b=>b.classList.toggle('active', b.dataset.model===k));
-  document.getElementById('model-hint').textContent = MODEL_HINTS[k];
 }
 
 async function loadModel(){
@@ -526,20 +543,7 @@ function measure(){
   return m;
 }
 
-/* ---------- movement pattern classification ----------
-   Only the pattern, never the specific lift: keypoints cannot see what
-   is in someone's hands, so guessing "front squat" over "goblet squat"
-   would be invention. The user confirms the exercise. */
-const PATTERNS = {
-  squat:   { label:'Squat pattern',       keys:['squat'] },
-  hinge:   { label:'Hip hinge pattern',   keys:['deadlift','romanian','good morning','hinge','pull through','glute ham','swing'] },
-  lunge:   { label:'Lunge / split stance',keys:['lunge','split squat','step up'] },
-  press:   { label:'Overhead press',      keys:['overhead press','shoulder press','military','arnold','push press','jerk','z press','landmine press'] },
-  pull:    { label:'Vertical pull',       keys:['pull up','chin up','pulldown','muscle up'] },
-  pushup:  { label:'Push-up / plank',     keys:['push up','push-up','plank','dip'] },
-  hold:    { label:'Static hold',         keys:['plank','hold','wall sit','hang','l sit'] }
-};
-
+/* ---------- movement pattern classification ---------- */
 function classify(){
   const s = samples;
   const g = k => s.map(x=>x[k]).filter(v=>v!=null);
@@ -652,25 +656,6 @@ function repSignal(pattern){
 }
 
 /* ---------- library matching ---------- */
-/* Keep patterns from bleeding into each other. An olympic clean involves a
-   hinge, but offering "Hang Clean" when someone filmed a deadlift is noise. */
-const PATTERN_EXCLUDE = {
-  squat:  ['split','lunge','burpee','thruster','jump','step up'],
-  hinge:  ['squat','clean','snatch','jerk','swing clean'],
-  lunge:  ['thruster','press','clean'],
-  press:  ['bench','floor press','pin press'],
-  pull:   ['straight arm','pull through','pullover'],
-  pushup: ['plus'],
-  hold:   ['clean','snatch','jerk','row','curl']
-};
-
-/* The lift most people filming this pattern are actually doing. Pinned first
-   so the default guess is the common case, not the shortest name. */
-const PATTERN_DEFAULT = {
-  squat:'back-squat', hinge:'deadlift', lunge:'lunge', press:'ohp',
-  pull:'pullup', pushup:'pushup', hold:'plank'
-};
-
 function libraryMatches(pattern){
   if(typeof exercises === 'undefined' || !PATTERNS[pattern]) return [];
   const keys = PATTERNS[pattern].keys;
@@ -1173,17 +1158,19 @@ async function requestAICoach() {
     btn.textContent = '✨ Refresh AI Vision Analysis';
 
     if (data.result) {
-      // Save the analysis to our new Supabase table!
       const eSlug = (userPicked && userPicked.id) || (chosenExercise && chosenExercise.id) || 'unknown';
-      try {
-        await supabase.from('form_checks').insert([{
-          exercise_slug: eSlug,
-          reps: reps,
-          metrics: metrics,
-          ai_feedback: data.result
-        }]);
-      } catch (err) {
-        console.error('Failed to save to Supabase', err);
+      const sb = getSupabase();
+      if (sb) {
+        try {
+          await sb.from('form_checks').insert([{
+            exercise_slug: eSlug,
+            reps: reps,
+            metrics: metrics,
+            ai_feedback: data.result
+          }]);
+        } catch (err) {
+          console.error('Failed to save to Supabase', err);
+        }
       }
 
       // Format markdown line breaks & bold headers to HTML

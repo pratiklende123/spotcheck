@@ -1141,17 +1141,19 @@ async function requestAICoach() {
   };
 
   try {
-    const res = await fetch('/.netlify/functions/video-form-check', {
+    const payload = JSON.stringify({ exerciseName, reps, pattern, metrics, frames: keyframes });
+    let res = await fetch('/api/video-form-check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        exerciseName,
-        reps,
-        pattern,
-        metrics,
-        frames: keyframes
-      })
+      body: payload
     });
+    if (!res.ok && res.status === 404) {
+      res = await fetch('/.netlify/functions/video-form-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      });
+    }
 
     const data = await res.json();
     btn.disabled = false;

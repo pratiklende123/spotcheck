@@ -124,19 +124,25 @@
     that bit. It also can't judge bracing, grip, breathing, or pain. Cues it can't verify are marked as such
     rather than quietly passed.
   
-  <!-- PRIMARY ACTION: Upload or Camera — shown first so it's obvious -->
-  <div class="card" style="border-color:var(--mistake);margin-bottom:24px;">
-    <h3 style="color:var(--chalk);font-size:15px;margin-bottom:14px;">📹 Step 1 — Choose your video source</h3>
-    <div class="row">
+  <!-- PRIMARY ACTION: Upload, Camera, and Analyse Form -->
+  <div class="card" style="border-color:var(--mistake);margin-bottom:24px;background:rgba(232,84,42,0.06);">
+    <h3 style="color:var(--chalk);font-size:16px;margin-bottom:14px;">📹 Choose Your Video &amp; Start Analysis</h3>
+    <div class="row" style="flex-wrap:wrap;gap:10px;">
       <input type="file" id="file" accept="video/*" hidden onchange="loadFile(event)">
-      <button class="opt active" onclick="document.getElementById('file').click()" style="background:var(--mistake);border-color:var(--mistake);color:#fff;font-size:14px;padding:12px 22px;">
-        📁 Upload a video
+      <button class="opt" id="upload-btn" onclick="document.getElementById('file').click()" style="background:#262320;border:1px solid #4a453e;color:#fff;font-size:14px;padding:12px 20px;">
+        📁 Upload a Video
       </button>
-      <button class="opt" onclick="startCam()" style="font-size:14px;padding:12px 22px;">
-        📷 Use camera live
+      <button class="opt" onclick="startCam()" style="font-size:14px;padding:12px 20px;">
+        📷 Use Camera Live
+      </button>
+      <button class="opt active" id="analyse-btn" onclick="startAnalysis()" style="background:var(--correct);border-color:var(--correct);color:#fff;font-size:14px;padding:12px 24px;font-weight:700;">
+        ▶ Analyse Form
+      </button>
+      <button class="opt" id="stop-btn" onclick="stopAll()" style="display:none;background:var(--mistake);border-color:var(--mistake);color:#fff;font-size:14px;padding:12px 20px;">
+        ⏹ Stop
       </button>
     </div>
-    <p class="hint" style="margin-top:10px;">Upload a short clip (5–15 sec, 2–3 reps) or use your live camera. Keep your whole body in frame.</p>
+    <p class="hint" id="source-hint" style="margin-top:10px;">Upload a clip (5–15 sec, 2–3 reps) or use your camera, then click <strong>Analyse Form</strong>.</p>
   </div>
 
   <div class="card">
@@ -168,14 +174,6 @@
       <button class="opt" data-model="accurate" onclick="setModel('accurate')">Accurate</button>
     </div>
     <p class="hint" id="model-hint"></p>
-  </div>
-
-  <div class="card" id="analyse-card" style="display:none;">
-    <h3>5 — Ready to analyse</h3>
-    <div class="row">
-      <button class="opt active" id="analyse-btn" onclick="startAnalysis()" style="background:var(--correct);border-color:var(--correct);color:#fff;font-size:14px;padding:12px 22px;">▶ Analyse my form</button>
-      <button class="opt" id="stop-btn" onclick="stopAll()" style="display:none;">Stop</button>
-    </div>
   </div>
 
   <div class="stage" id="stage">
@@ -383,13 +381,11 @@ function loadFile(e){
   stopStream(); videoEl.srcObject = null;
   videoEl.src = URL.createObjectURL(f); videoEl.loop = false; videoEl.muted = true;
   document.getElementById('stage').classList.add('active');
+  const sourceHint = document.getElementById('source-hint');
+  if(sourceHint) sourceHint.innerHTML = '✅ Video loaded: <strong>' + f.name + '</strong>. Click <strong style="color:var(--correct)">▶ Analyse Form</strong> to begin!';
   videoEl.onloadedmetadata = () => {
     sizeCanvas();
-    // Show the analyse card and scroll to it
-    const analyseCard = document.getElementById('analyse-card');
-    analyseCard.style.display = 'block';
-    analyseCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    statusEl.textContent = 'Ready — press Analyse my form';
+    statusEl.textContent = 'Video loaded — press Analyse Form';
   };
 }
 async function startCam(){
@@ -399,10 +395,9 @@ async function startCam(){
     videoEl.src = ''; videoEl.srcObject = stream; videoEl.loop = false;
     document.getElementById('stage').classList.add('active');
     await videoEl.play(); sizeCanvas();
-    const analyseCard = document.getElementById('analyse-card');
-    analyseCard.style.display = 'block';
-    analyseCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    statusEl.textContent = 'Camera live — press Analyse my form';
+    const sourceHint = document.getElementById('source-hint');
+    if(sourceHint) sourceHint.innerHTML = '📷 Live camera active. Click <strong style="color:var(--correct)">▶ Analyse Form</strong> to start tracking!';
+    statusEl.textContent = 'Camera live — press Analyse Form';
   }catch(err){
     statusEl.textContent = 'Camera blocked'; statusEl.classList.add('bad');
     alert('Could not open the camera: ' + err.message + '\n\nYou can upload a video file instead.');
@@ -745,6 +740,12 @@ function renderLive(m){
 
 /* ---------- loop ---------- */
 async function startAnalysis(){
+  if(!videoEl.src && !videoEl.srcObject){
+    const sourceHint = document.getElementById('source-hint');
+    if(sourceHint) sourceHint.innerHTML = '<span style="color:var(--mistake);font-weight:600;">⚠️ Please upload a video file or click "Use Camera Live" first!</span>';
+    document.getElementById('file').click();
+    return;
+  }
   await loadModel();
   samples=[]; liveReps=0; running=true; chosenExercise=null;
   Object.keys(smoothKP).forEach(k=>delete smoothKP[k]);

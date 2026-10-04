@@ -123,10 +123,24 @@
     the <i>pattern</i> (a squat) rather than the exact lift (a front squat vs a goblet squat) — you confirm
     that bit. It also can't judge bracing, grip, breathing, or pain. Cues it can't verify are marked as such
     rather than quietly passed.
+  
+  <!-- PRIMARY ACTION: Upload or Camera — shown first so it's obvious -->
+  <div class="card" style="border-color:var(--mistake);margin-bottom:24px;">
+    <h3 style="color:var(--chalk);font-size:15px;margin-bottom:14px;">📹 Step 1 — Choose your video source</h3>
+    <div class="row">
+      <input type="file" id="file" accept="video/*" hidden onchange="loadFile(event)">
+      <button class="opt active" onclick="document.getElementById('file').click()" style="background:var(--mistake);border-color:var(--mistake);color:#fff;font-size:14px;padding:12px 22px;">
+        📁 Upload a video
+      </button>
+      <button class="opt" onclick="startCam()" style="font-size:14px;padding:12px 22px;">
+        📷 Use camera live
+      </button>
+    </div>
+    <p class="hint" style="margin-top:10px;">Upload a short clip (5–15 sec, 2–3 reps) or use your live camera. Keep your whole body in frame.</p>
   </div>
 
   <div class="card">
-    <h3>1 — What are you doing?</h3>
+    <h3>2 — What exercise are you doing?</h3>
     <div class="row">
       <input list="ex-list" id="ex-input" placeholder="Start typing — e.g. Barbell Back Squat"
              autocomplete="off" oninput="pickExercise(this.value)"
@@ -139,7 +153,7 @@
   </div>
 
   <div class="card">
-    <h3>2 — Camera angle</h3>
+    <h3>3 — Camera angle</h3>
     <div class="row">
       <button class="opt active" data-view="side" onclick="setView('side')">Side on</button>
       <button class="opt" data-view="front" onclick="setView('front')">Facing camera</button>
@@ -148,7 +162,7 @@
   </div>
 
   <div class="card">
-    <h3>3 — Tracking quality</h3>
+    <h3>4 — Tracking quality</h3>
     <div class="row">
       <button class="opt active" data-model="fast" onclick="setModel('fast')">Fast</button>
       <button class="opt" data-model="accurate" onclick="setModel('accurate')">Accurate</button>
@@ -156,16 +170,12 @@
     <p class="hint" id="model-hint"></p>
   </div>
 
-  <div class="card">
-    <h3>4 — Your clip</h3>
+  <div class="card" id="analyse-card" style="display:none;">
+    <h3>5 — Ready to analyse</h3>
     <div class="row">
-      <input type="file" id="file" accept="video/*" hidden onchange="loadFile(event)">
-      <button class="opt" onclick="document.getElementById('file').click()">Upload a video</button>
-      <button class="opt" onclick="startCam()">Use camera</button>
-      <button class="opt" id="analyse-btn" onclick="startAnalysis()" disabled>Analyse</button>
-      <button class="opt" id="stop-btn" onclick="stopAll()" style="display:none">Stop</button>
+      <button class="opt active" id="analyse-btn" onclick="startAnalysis()" style="background:var(--correct);border-color:var(--correct);color:#fff;font-size:14px;padding:12px 22px;">▶ Analyse my form</button>
+      <button class="opt" id="stop-btn" onclick="stopAll()" style="display:none;">Stop</button>
     </div>
-    <p class="hint">Whole body in frame, 5–15 seconds, 2–3 reps. Good light, fitted clothing, phone braced on something.</p>
   </div>
 
   <div class="stage" id="stage">
@@ -374,8 +384,11 @@ function loadFile(e){
   document.getElementById('stage').classList.add('active');
   videoEl.onloadedmetadata = () => {
     sizeCanvas();
-    document.getElementById('analyse-btn').disabled = false;
-    statusEl.textContent = 'Ready — press Analyse';
+    // Show the analyse card and scroll to it
+    const analyseCard = document.getElementById('analyse-card');
+    analyseCard.style.display = 'block';
+    analyseCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    statusEl.textContent = 'Ready — press Analyse my form';
   };
 }
 async function startCam(){
@@ -385,8 +398,10 @@ async function startCam(){
     videoEl.src = ''; videoEl.srcObject = stream; videoEl.loop = false;
     document.getElementById('stage').classList.add('active');
     await videoEl.play(); sizeCanvas();
-    document.getElementById('analyse-btn').disabled = false;
-    statusEl.textContent = 'Camera live — press Analyse';
+    const analyseCard = document.getElementById('analyse-card');
+    analyseCard.style.display = 'block';
+    analyseCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    statusEl.textContent = 'Camera live — press Analyse my form';
   }catch(err){
     statusEl.textContent = 'Camera blocked'; statusEl.classList.add('bad');
     alert('Could not open the camera: ' + err.message + '\n\nYou can upload a video file instead.');

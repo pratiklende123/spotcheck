@@ -468,6 +468,13 @@
     <h1 id="detail-title">Exercise</h1>
     <div class="meta-row" id="meta-row"></div>
 
+    <a id="detail-formcheck-btn" class="formcheck-link" href="formcheck.html" style="margin:16px 0 20px 0; max-width:100%;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2.5" y="5.5" width="14" height="13" rx="2.5"/><path d="m16.5 10.5 5-3v9l-5-3z"/>
+      </svg>
+      <span>Upload Video / Check Form for this Exercise<em>AI video analysis & joint tracking tailored to this lift</em></span>
+    </a>
+
     <div class="toggle-row">
       <div class="barbell-toggle" id="form-toggle" data-state="correct" onclick="toggleForm()" tabindex="0" role="button" aria-label="Toggle between correct form and common mistake">
         <div class="sleeve left"></div>
@@ -751,6 +758,9 @@ function openExercise(id, skipHash){
     '<span class="meta" style="color:' + gc + '; border-color:' + gc + '55">'
       + (GROUP_LABEL[ex.group] || ex.group) + '</span>' +
     '<span class="meta risk">Watch: ' + ex.riskTag + '</span>';
+
+  const formcheckBtn = document.getElementById('detail-formcheck-btn');
+  if(formcheckBtn) formcheckBtn.href = 'formcheck.html?ex=' + encodeURIComponent(ex.id);
 
   document.getElementById('correct-cues').innerHTML  = ex.cues.map(c => '<li>' + c + '</li>').join('');
   document.getElementById('mistake-title').textContent = ex.mistakeTitle;

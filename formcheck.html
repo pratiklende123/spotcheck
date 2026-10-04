@@ -329,8 +329,9 @@ function pickExercise(val){
   document.getElementById('auto-btn').classList.remove('active');
   const q = val.trim().toLowerCase();
   const ex = (typeof exercises === 'undefined') ? null :
-    // exact name, then alias, then a unique partial name match
-    exercises.find(e => e.name.toLowerCase() === q)
+    // exact id, exact name, then alias, then a unique partial name match
+    exercises.find(e => e.id.toLowerCase() === q)
+    || exercises.find(e => e.name.toLowerCase() === q)
     || exercises.find(e => (e.aliases||[]).some(a => a === q))
     || (exercises.filter(e => e.name.toLowerCase().includes(q)).length === 1
           ? exercises.find(e => e.name.toLowerCase().includes(q)) : null);
@@ -1111,6 +1112,17 @@ function init(){
   buildExerciseList();
   setModel('accurate'); setModel('fast');   // populates the hint text
   setView('side');
+
+  // Check URL param ?ex= to preselect exercise
+  const params = new URLSearchParams(window.location.search);
+  const exParam = params.get('ex');
+  if(exParam && typeof exercises !== 'undefined'){
+    const found = exercises.find(e => e.id.toLowerCase() === exParam.toLowerCase() || e.name.toLowerCase() === exParam.toLowerCase());
+    if(found){
+      document.getElementById('ex-input').value = found.name;
+      pickExercise(found.name);
+    }
+  }
 }
 init();
 
